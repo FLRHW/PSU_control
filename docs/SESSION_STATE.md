@@ -29,7 +29,7 @@
 ## Offline testing automation (2026-11-15)
 
 - New `.github/workflows/offline-tests.yml` on `dev` runs Python compilation and the entire `unittest discover` suite on GitHub Actions on pushes/PRs, with headless Qt and Matplotlib dependencies. No real PSU, instrument network access, or large stored artifacts are required.
-- Workflow added in commit `06dbdd3fbfc40e280da5cfd998c8c1de9b3a5921`; workflow result has **not yet been independently retrieved**. Do not record the suite as passing until an actual run is inspected.
+- Workflow added in commit `06dbdd3fbfc40e280da5cfd998c8c1de9b3a5921`; workflow result **independently verified**: [GitHub Actions run #43734073069](https://github.com/FLRHW/PSU_control/actions/runs/43734073069), commit `69d0e0ccc1f6aee86f58a948e144862afcb94ee2`, completed with `conclusion=success` on 2026-11-15. `unittest` reported **95 tests, 0 failures/errors, 2 skipped, 9.756 s**. The skips were `test_actual_hardware_log_context` (no uploaded hardware recording) and `test_report_has_offline_zoom_and_cursors` (uploaded HW data not mounted). Compilation and the full available offline suite succeeded.
 - Policy: assistant handles code-only/offline regression, simulation and CI; user handles physical-CPX400DP/oscilloscope/load validation only.
 
 ## Latest work (2026-11-15)
@@ -45,13 +45,13 @@
 - Historical v13.4 session: reported **94 offline tests passed**; hardware and GUI visual validation were outstanding at that point.
 - Historical v13.5 session: reported **six focused handler checks passed**, but **full regression suite not run**.
 - Older 50 ms scheduling runs and Ctrl+C restoration investigations are covered by the handover; they are evidence for past versions, not a substitute for v13.5 validation.
-- Current `dev` full-suite pass and physical verification **remain pending**. Verify local working tree matches remote branch before testing.
+- Current `dev` offline suite **passed at commit `69d0e0c`** (95 tests, 2 skipped for unavailable hardware recordings); future source changes require a fresh CI result. Physical v13.5 validation **remains pending**. Verify local working tree matches remote branch before hardware testing.
 - Software is not a fail-safe protection mechanism; loss of LAN can prevent restoration.
 
 ## Next actions, in order
 
 1. On workstation: `git switch dev && git pull`, then `git status --short && git rev-parse HEAD`.
-2. Run offline regression: `PYTHONPATH=scripts python3 -m unittest discover -s tests -p 'test_*.py'`; record actual outcome and exact HEAD here.
+2. Assistant checks the automated offline regression for each new `dev` commit before requesting any hardware test; reference successful CI run #43734073069 for the documented baseline. The user is responsible only for physical hardware measurements and interactions.
 3. Run low-power hardware checks: standalone ON/OFF and indicators; paused-profile manual changes, Resume restoration, Stop during pause, no popup dialogs, final `LOCAL`. Record report CSV/HTML/console and actual PSU load.
 4. If successful, decide on merge of `dev` to `main` and a formal version/tag; do not treat docs changes as validation.
 5. After each meaningful development/testing session, update this file with commit, results, unresolved items and next action. Prefer a short state (about one page) over entire chat histories.
