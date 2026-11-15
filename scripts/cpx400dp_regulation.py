@@ -10,7 +10,7 @@ import re
 
 
 def decode_limit_event(response, enabled, previous=None):
-    """Return 'CV', 'CC', 'UNREG', or None (unknown).
+    """Return 'CV', 'CC', 'UNREG', 'FAULT', or None (unknown).
 
     If no new transition event is reported, retain the last observed mode
     only while the output remains enabled. Conflicting simultaneous events
@@ -29,12 +29,13 @@ def decode_limit_event(response, enabled, previous=None):
         raise ValueError('Invalid CPX400DP LSR response')
     if mask < 0 or mask > 255:
         raise ValueError('Invalid CPX400DP LSR value')
-    # Trips/protection demand a separate fault indication; never call them CV.
+    # Protection/trip events supersede regulation status; the UI must
+    # never disguise a trip as normal CV/CC regulation.
     if mask & (0x40 | 0x08 | 0x04):
-        return None
+        return 'FAULT'
     flags = [name for bit, name in ((0x10,'UNREG'),(0x02,'CC'),(0x01,'CV')) if mask & bit]
     if len(flags) > 1:
         return None
     if flags:
         return flags[0]
-    return previous if previous in ('CV','CC','UNREG') else None
+    return previous if previous in ('CV','CC','UNREG','FAULT') else None
