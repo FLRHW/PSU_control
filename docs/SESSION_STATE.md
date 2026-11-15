@@ -3,11 +3,19 @@
 **Updated:** 2026-11-15  
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
-**Stable/import branch:** `main` (v13.3 import; no merge performed)  
-**Functional milestone:** **v13.5 development behaviour**, functional hardware test plan completed; awaiting explicit approval for stable release/merge.  
+**Stable release branch:** `main` (v13.5 merged from `dev`, PR #1, merge commit `7d5b3931404a9630c0343808e3ac7f695b289516`).  
+**Functional milestone:** **v13.6 development started**. v13.5 functional hardware acceptance completed and merged to `main`; v13.6 code is offline-only and not hardware validated.  
 **Source baseline examined for handover:** `a118b9e0ede1c496101dd46bbe3e3f602cd25601` on `dev` (documentation-only commits follow; **check current HEAD** before writing code).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
+
+## v13.6 development — current increment (2026-11-15)
+
+- **Implemented (dev, not yet hardware-tested):** `scripts/cpx400dp_run_enhanced.py` now streams scheduled ticks through an iterator instead of allocating all regular ticks at once; `validate_schedule()` checks potentially short gaps around user keyframes and phase endings without walking the full time grid. The completed-tick counter is incremental.
+- **Offline tests added:** `tests/test_v13_6_long_schedule.py` tests short-profile compatibility, sorted/deduplicated keyframes, 1,000-hour duration with 50 ms minimum interval (without executing 72 million ticks), rejection of a 25 ms-offset keyframe, final phase ending too close to regular tick and ramp gap.
+- **Offline regression:** CI is configured to run the full test suite on every `dev` push. Inspect latest run for the specific code/test commit before treating regression as passed; no PSU hardware test of this revision has been performed.
+- **Still planned:** verify authoritative CPX400DP CV/CC per-channel status register semantics and show status in Manual Control without additional socket ownership; rework full-report CSV parsing/HTML rendering and graph axis for 1,000-hour profiles; ensure 50 ms local zoom fidelity and bounded plotting/storage.
+- The 1,000-hour/50 ms test is a **synthetic bounded-time scheduler check**, not a 41-day run, throughput guarantee or evidence of unattended reliability. Maintain safe failure/cleanup behaviour.
 
 ## Currently implemented in dev
 
@@ -20,8 +28,12 @@
 
 ## Branch/version reconciliation
 
-- `main` has imported **v13.3** baseline (verified with GitHub branch comparison; base commit `db872a89648551d73788af3ad46e97b61c8ba2e6`).
-- `dev` carries the v13.4 UI milestone and v13.5 confirmation-removal milestone plus documentation updates.
+- The release PR [#1](https://github.com/FLRHW/PSU_control/pull/1) was merged on 2026-11-15, merge commit `7d5b393`. v13.5 is now on `main`. The `v13.5` annotated tag creation was delegated to the user and was not independently confirmed when v13.6 began.
+- `dev` remains the active development branch. First v13.6 code commit `5a992c9`; new offline tests `d7acf2c`.
+
+
+- Historical: `main` originally held a **v13.3** import; it now contains the merged v13.5 release.
+- `dev` carries released v13.4/v13.5 code and **new v13.6 scheduler changes**, plus documentation.
 - `docs/RELEASE_v13_4.md` describes behaviour **at v13.4**, including the then-retained standalone enable confirmation. It is historical and superseded on `dev` by v13.5; do not rewrite historical behaviour.
 - The old README title incorrectly implied the entire `dev` tree was still v13.3; README and v13.5 notes were updated to distinguish current development from stable/import baseline.
 - No verified version tag, actual instrument test or full current test pass is inferred from these labels.
@@ -92,8 +104,8 @@
 
 1. On workstation: `git switch dev && git pull`, then `git status --short && git rev-parse HEAD`.
 2. Assistant checks the automated offline regression for each new `dev` commit before requesting any hardware test; reference successful CI run #43734073069 for the documented baseline. The user is responsible only for physical hardware measurements and interactions.
-3. **Stages 1, 2, 3A and 3B PASS** for tested functions; physical front-panel LOCAL and GUI idle recovery now user-confirmed. Review the source diff, run/verify latest CI as necessary, then request authorization to merge `dev` into `main` and/or tag v13.5.
-4. If successful, decide on merge of `dev` to `main` and a formal version/tag; do not treat docs changes as validation.
+3. **v13.5 release merged.** For v13.6, verify CI for `d7acf2c` or later and continue the two previously queued enhancements; user performs only real-instrument tests after offline checks.
+4. Before v13.6 release, complete CV/CC status interpretation/UI, long-duration reports/plots, test CI and user hardware checks. Keep `main` on v13.5 until separately approved.
 5. After each meaningful development/testing session, update this file with commit, results, unresolved items and next action. Prefer a short state (about one page) over entire chat histories.
 
 ## Start-of-next-chat prompt
