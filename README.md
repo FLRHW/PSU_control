@@ -1,7 +1,7 @@
 # CPX400DP PSU Control
 
-**Current development baseline: v13.5 behaviour on `dev` (not a hardware-validated release).**  
-**Stable/imported baseline: v13.3 on `main`.**
+**Current development baseline: v13.6 on `dev` (offline-tested, hardware validation pending).**  
+**Stable baseline: v13.5 merged to `main` (hardware validation completed 2026-11-15).**
 
 Linux/Kubuntu Python control application for Aim-TTi CPX400DP PSU, supporting CSV profile execution, pause/manual/resume, Ethernet discovery, interactive reports and standalone manual control.
 
@@ -9,17 +9,18 @@ Linux/Kubuntu Python control application for Aim-TTi CPX400DP PSU, supporting CS
 
 | Version | Branch / evidence | Status |
 | --- | --- | --- |
-| v13.3 | Imported application baseline on `main`; `docs/RELEASE_v13_3.md` | Historical import/release label; not revalidated by this documentation update |
+| v13.3 | `docs/RELEASE_v13_3.md` | Historical imported baseline |
 | v13.4 | Subsequent changes on `dev`; `docs/RELEASE_v13_4.md` | Historical development milestone: output-state buttons, coloured indicators, confirmation-free Resume |
-| v13.5 | Current `dev` source and `docs/RELEASE_v13_5.md` | Working development baseline: also removes standalone Manual Control output-enable confirmation; **full regression and hardware release validation pending** |
+| v13.5 | Merged into `main`, PR #1 / `7d5b393`; historical `docs/RELEASE_v13_5.md` | Hardware acceptance Stages 1–3 passed (see session state); latest pre-merge CI passed |
+| v13.6 | `dev`; `docs/SESSION_STATE.md` | In development: lazy long-duration schedule, adaptive preview/report axes, last-observed CC/CV event indicators; offline-tested, **not hardware validated** |
 
-Version numbers above describe **feature milestones**, not Git tags or automatic evidence that a physical PSU was tested with that exact commit. Source on `dev` was reviewed, but no unit tests or physical PSU tests were executed as part of the version reconciliation.
+Version labels do not establish a Git tag by themselves. v13.5 hardware tests and source evidence are documented in `docs/SESSION_STATE.md`. The v13.5 annotated tag has not been independently confirmed. The current v13.6 code has passed GitHub Actions offline tests, but **has not been tested on hardware**.
 
 ## Documentation to read first
 
 - [Engineering handover](docs/PROJECT_HANDOVER.md): architecture, protocol, safety invariants, decisions, historical evidence
 - [Session state](docs/SESSION_STATE.md): current development status, validation gaps and next steps
-- [v13.5 development notes](docs/RELEASE_v13_5.md): current manual-control behaviour and evidence
+- [v13.5 historical notes](docs/RELEASE_v13_5.md): manual-control behaviour at that milestone
 - [v13.4 historical notes](docs/RELEASE_v13_4.md), [v13.3 historical notes](docs/RELEASE_v13_3.md)
 
 ## Layout
@@ -46,6 +47,13 @@ PYTHONPATH=scripts python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
 Manual voltage/current spinboxes and displayed live V/A values show two decimal places. Internally stored precision, SCPI payloads, and logged measurements are not rounded by this display-only change.
+
+## v13.6 development notes
+
+- The scheduler validates and streams a synthetic 1,000-hour profile with 50 ms update intervals without allocating every tick in advance. This does **not** validate 41-day unattended execution.
+- Offline preview and report time axes adapt to seconds, minutes, hours or days. The report JavaScript avoids large argument-list spreads and retains local extrema in the displayed viewport. However, the report generator still reads full CSV logs into memory; processing truly massive recordings is **not yet solved**.
+- Manual Control displays `CV`, `CC`, `UNREG` or `FAULT` as **last observed status events**, or UNKNOWN. CPX400DP `LSR1?`/`LSR2?` registers are **read-and-clear event registers**, not live regulation-mode readbacks. These labels are not guaranteed real-time mode information. Standalone Manual Control and paused-profile Manual Control use their existing single socket owners.
+- v13.6 is development-only; no hardware safety or long-term reliability guarantee.
 
 ## Git and safety
 
