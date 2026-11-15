@@ -76,6 +76,7 @@ time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable
                  patch.object(runner,'verify_initial_snapshot',return_value=({1:(.18,1.5,1)},b'')), \
                  patch.object(runner,'snapshot',side_effect=fake_snapshot), \
                  patch.object(runner,'measure',side_effect=lambda sock,ch,pending: ((psu[ch][0],psu[ch][0]/15),pending)), \
+                 patch.object(runner,'query_expected',return_value=('1',b'')), \
                  patch.object(runner,'send',side_effect=fake_send), \
                  patch.object(runner,'finish_channels',side_effect=fake_finish), \
                  patch.object(runner,'collect_diagnostics',return_value=(b'',{})), \
