@@ -757,8 +757,15 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                         lambda line: re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', line.strip()) is not None)
                     pause_limit_modes[ch] = decode_limit_event(
                         answer, bool(pause_manual_targets[ch][2]), pause_limit_modes[ch])
-                except (OSError, ValueError, ConnectionError):
+                    # Since LSR is read-and-clear, preserve nonzero raw
+                    # event bits in the measurement log for later diagnostics.
+                    if int(answer, 0) if answer.strip().lower().startswith('0x') else int(answer):
+                        log('limit_event_sample', channel=ch,
+                            note=f'paused LSR{ch}?={answer}; read-and-clear')
+                except (OSError, ValueError, ConnectionError) as exc:
                     pause_limit_modes[ch] = None
+                    log('limit_event_error', channel=ch,
+                        note=f'paused LSR{ch}? unavailable: {exc}')
             return pending
 
         def emit_pause_manual_state(sock, pending):
