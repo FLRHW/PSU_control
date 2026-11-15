@@ -1091,6 +1091,9 @@ class Window(QMainWindow):
                 programmed = {int(k): tuple(v['programmed']) for k,v in data.items()}
                 readings = {int(k): tuple(v['measured']) for k,v in data.items()}
                 self.manual_update(programmed, readings)
+                if any('regulation' in value for value in data.values()):
+                    modes = {int(k): v.get('regulation') for k, v in data.items()}
+                    self.manual_regulation_update(modes)
             except (ValueError, KeyError, TypeError) as exc:
                 self.append_console('GUI: Ignored malformed paused state: ' + str(exc))
         elif line.startswith('[PAUSE MANUAL OK]'):
