@@ -12,8 +12,6 @@ class LongPreviewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             p=Path(td)/'long.csv'
             p.write_text(
-                '# interval_s=0.05\n'
-                '# readback_interval_s=0.25\n'
                 'time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable\n'
                 '0,1,1,0\n'
                 '1800000,2,1,1\n'
