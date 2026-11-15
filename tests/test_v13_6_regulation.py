@@ -15,8 +15,10 @@ class RegulationEventTests(unittest.TestCase):
         self.assertIsNone(decode_limit_event('0', False, 'CV'))
 
     def test_ambiguous_and_fault_conditions_are_unknown(self):
-        for value in ('3','0x12','0x41','0x08','0x04'):
+        for value in ('3','0x12'):
             self.assertIsNone(decode_limit_event(value,True,'CV'))
+        for value in ('0x41','0x08','0x04'):
+            self.assertEqual(decode_limit_event(value,True,'CV'),'FAULT')
         self.assertIsNone(decode_limit_event('1',False,'CC'))
 
     def test_invalid_status_rejected(self):
