@@ -552,7 +552,7 @@ class Window(QMainWindow):
 
     def manual_regulation_update(self, modes):
         # These are *last observed events*, not continuous-state telemetry.
-        colours = {'CV': '#116037', 'CC': '#854a12', 'UNREG': '#a62735'}
+        colours = {'CV': '#116037', 'CC': '#854a12', 'UNREG': '#a62735', 'FAULT': '#a62735'}
         for ch in (1, 2):
             label = self.manual_cards.get((ch, 'regulation'))
             if label is None:
