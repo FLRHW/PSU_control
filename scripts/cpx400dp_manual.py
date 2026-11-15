@@ -6,17 +6,20 @@ serialised. Disconnect preserves user's programmed values and sends LOCAL last.
 """
 import queue
 import time
+import re
 try:
     from PySide6.QtCore import QThread, Signal as pyqtSignal
 except ImportError:
     from PyQt5.QtCore import QThread, pyqtSignal
 from cpx400dp_discovery import connect_psu
-from cpx400dp_run_enhanced import send, measure, snapshot, verify_initial_snapshot
+from cpx400dp_run_enhanced import send, measure, snapshot, verify_initial_snapshot, query_expected
+from cpx400dp_regulation import decode_limit_event
 
 
 class ManualWorker(QThread):
     connected = pyqtSignal(str)
     state_changed = pyqtSignal(object, object)
+    regulation_changed = pyqtSignal(object)
     failed = pyqtSignal(str)
     finished_safe = pyqtSignal(str)
 
@@ -43,6 +46,7 @@ class ManualWorker(QThread):
             self.connected.emit(f'{host}:9221 via {iface or "system route"}')
             self.state_changed.emit(initial, {})
             next_poll = time.monotonic()
+            last_regulation = {1: None, 2: None}
             while not self.shutting_down:
                 wait = max(0.0, next_poll - time.monotonic())
                 try:
@@ -90,6 +94,21 @@ class ManualWorker(QThread):
                         reading, pending = measure(sock, channel, pending)
                         readings[channel] = tuple(reading)
                     self.state_changed.emit(states, readings)
+                    regulation = {}
+                    for channel in (1, 2):
+                        try:
+                            answer, pending = query_expected(
+                                sock, f'LSR{channel}?', pending,
+                                lambda reply: re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', reply.strip()) is not None)
+                            mode = decode_limit_event(answer, bool(states[channel][2]),
+                                                      last_regulation[channel])
+                        except (OSError, ValueError, ConnectionError):
+                            # A diagnostic query is advisory, never a reason
+                            # to abort Manual Control or claim an old state.
+                            mode = None
+                        last_regulation[channel] = mode
+                        regulation[channel] = mode
+                    self.regulation_changed.emit(regulation)
                     next_poll = time.monotonic() + .25
         except Exception as exc:
             reason = f'Manual connection error: {exc}'
