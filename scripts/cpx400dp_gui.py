@@ -414,6 +414,11 @@ class Window(QMainWindow):
             output_badge.setStyleSheet('font-size: 16px; font-weight: 700; padding: 9px; '
                                        'border-radius: 6px; color: #465365; background: #e3e9f1;')
             fields.addWidget(output_badge)
+            regulation = QLabel('REGULATION: UNKNOWN')
+            regulation.setToolTip('Last unambiguous CV/CC/UNREG event from the read-and-clear LSR register; not a guaranteed live operating-mode reading.')
+            regulation.setStyleSheet('font-size: 13px; font-weight: 600; color: #536173;')
+            fields.addWidget(regulation)
+            self.manual_cards[(ch, 'regulation')] = regulation
             for key, name, low, high in (
                 ('voltage', 'Voltage (V)', 0, 60),
                 ('current', 'Current limit (A)', 0, 20)):
@@ -468,6 +473,9 @@ class Window(QMainWindow):
             # enables controls which issue local IPC requests to that runner.
             self.pause_manual_active = True
             self.manual_online = True
+            # Paused runner controls the existing socket; LSR event polling
+            # will be handled separately, never by an extra ManualWorker.
+            self.manual_regulation_update({1: None, 2: None})
             self.manual_connect_btn.setEnabled(False)
             self.manual_disconnect_btn.setText('Leave paused controls')
             self.manual_status.setText('PAUSED PROFILE — temporary manual control. '
@@ -496,6 +504,7 @@ class Window(QMainWindow):
         self.manual_status.setText('Connecting; verifying initial programmed states…')
         self.manual_connect_btn.setEnabled(False)
         self.manual_output_states = {1: None, 2: None}
+        self.manual_regulation_update({1: None, 2: None})
         self.start_btn.setEnabled(False)
         self.choose_btn.setEnabled(False)
         self.override_check.setEnabled(False)
@@ -503,6 +512,7 @@ class Window(QMainWindow):
         self.manual_worker = ManualWorker(address, interface, self)
         self.manual_worker.connected.connect(self.manual_connected)
         self.manual_worker.state_changed.connect(self.manual_update)
+        self.manual_worker.regulation_changed.connect(self.manual_regulation_update)
         self.manual_worker.failed.connect(self.manual_error)
         self.manual_worker.finished_safe.connect(self.manual_done)
         self.manual_worker.start()
@@ -539,6 +549,21 @@ class Window(QMainWindow):
                 voltage, current = readings[ch]
                 self.manual_cards[ch][0].setText(f'Measured: {voltage:.2f} V    {current:.2f} A')
         self.manual_widgets_enabled(self.manual_online)
+
+    def manual_regulation_update(self, modes):
+        # These are *last observed events*, not continuous-state telemetry.
+        colours = {'CV': '#116037', 'CC': '#854a12', 'UNREG': '#a62735'}
+        for ch in (1, 2):
+            label = self.manual_cards.get((ch, 'regulation'))
+            if label is None:
+                continue
+            mode = modes.get(ch)
+            if mode in colours:
+                label.setText(f'REGULATION: {mode} (last event)')
+                label.setStyleSheet(f'font-size: 13px; font-weight: 600; color: {colours[mode]};')
+            else:
+                label.setText('REGULATION: UNKNOWN')
+                label.setStyleSheet('font-size: 13px; font-weight: 600; color: #536173;')
 
     def manual_send(self, action, channel, value):
         if not self.manual_online:
