@@ -59,6 +59,7 @@ time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable
                  patch.object(runner, 'snapshot', return_value=({1:(2.0,1.0,1)},b'')), \
                  patch.object(runner, 'send', fake_send), \
                  patch.object(runner, 'measure', return_value=((2.0,0.1),b'')), \
+                 patch.object(runner, 'query_expected', return_value=('1',b'')), \
                  patch.object(runner,'finish_channels',fake_finish), \
                  contextlib.redirect_stdout(buf):
                 t0=time.monotonic()
