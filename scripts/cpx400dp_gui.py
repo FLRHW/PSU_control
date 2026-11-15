@@ -84,6 +84,7 @@ class Window(QMainWindow):
         self.profile = None
         self.manual_worker = None
         self.manual_online = False
+        self.manual_output_states = {1: None, 2: None}
         self.pause_manual_active = False
         self.pause_control_dir = None
         self.pause_socket_path = None
@@ -405,8 +406,14 @@ class Window(QMainWindow):
             meter = QLabel('Measured: — V    — A')
             meter.setStyleSheet('font-size: 19px; font-weight: 600;')
             fields.addWidget(meter)
-            state = QLabel('Programmed: — V / — A    Output: —')
+            state = QLabel('Programmed: — V / — A')
             fields.addWidget(state)
+            output_badge = QLabel('OUTPUT UNKNOWN')
+            output_badge.setAlignment(Qt.AlignCenter)
+            output_badge.setObjectName('outputIndicator')
+            output_badge.setStyleSheet('font-size: 16px; font-weight: 700; padding: 9px; '
+                                       'border-radius: 6px; color: #465365; background: #e3e9f1;')
+            fields.addWidget(output_badge)
             for key, name, low, high in (
                 ('voltage', 'Voltage (V)', 0, 60),
                 ('current', 'Current limit (A)', 0, 20)):
@@ -433,7 +440,7 @@ class Window(QMainWindow):
             row.addWidget(on)
             row.addWidget(off)
             fields.addLayout(row)
-            self.manual_cards[ch] = (meter, state, on, off)
+            self.manual_cards[ch] = (meter, state, on, off, output_badge)
             cards.addWidget(panel)
         layout.addLayout(cards)
         layout.addWidget(QLabel('Standalone: changes stay programmed after Disconnect (LOCAL). '
@@ -447,8 +454,9 @@ class Window(QMainWindow):
                 self.manual_cards[(ch,key)][1].setEnabled(enabled and
                     (not self.pause_manual_active or ch in self.run_channels))
             allowed = enabled and (not self.pause_manual_active or ch in self.run_channels)
-            self.manual_cards[ch][2].setEnabled(allowed)
-            self.manual_cards[ch][3].setEnabled(allowed)
+            output_state = self.manual_output_states[ch]
+            self.manual_cards[ch][2].setEnabled(allowed and output_state is False)
+            self.manual_cards[ch][3].setEnabled(allowed and output_state is True)
         self.manual_disconnect_btn.setEnabled(enabled)
         self.manual_resume_btn.setEnabled(self.running and self.paused and not self.stopping)
 
@@ -487,6 +495,7 @@ class Window(QMainWindow):
         interface = None if not interface or interface == 'Auto' else interface
         self.manual_status.setText('Connecting; verifying initial programmed states…')
         self.manual_connect_btn.setEnabled(False)
+        self.manual_output_states = {1: None, 2: None}
         self.start_btn.setEnabled(False)
         self.choose_btn.setEnabled(False)
         self.override_check.setEnabled(False)
@@ -507,8 +516,17 @@ class Window(QMainWindow):
         for ch in (1,2):
             if ch in programmed:
                 v, a, enabled = programmed[ch]
-                meter, state, on, off = self.manual_cards[ch]
-                state.setText(f'Programmed: {v:.2f} V / {a:.2f} A    Output: {"ON" if enabled else "OFF"}')
+                meter, state, on, off, indicator = self.manual_cards[ch]
+                self.manual_output_states[ch] = bool(enabled)
+                state.setText(f'Programmed: {v:.2f} V / {a:.2f} A')
+                if enabled:
+                    indicator.setText('● OUTPUT ON')
+                    indicator.setStyleSheet('font-size: 16px; font-weight: 700; padding: 9px; '
+                                            'border-radius: 6px; color: #116037; background: #ccf2dd;')
+                else:
+                    indicator.setText('○ OUTPUT OFF')
+                    indicator.setStyleSheet('font-size: 16px; font-weight: 700; padding: 9px; '
+                                            'border-radius: 6px; color: #6b2730; background: #f8dfe3;')
                 # Initial readbacks populate editable values; later polling
                 # never overwrites a user's pending edit.
                 if not hasattr(self,'_manual_populated'):
@@ -520,6 +538,7 @@ class Window(QMainWindow):
             if ch in readings:
                 voltage, current = readings[ch]
                 self.manual_cards[ch][0].setText(f'Measured: {voltage:.2f} V    {current:.2f} A')
+        self.manual_widgets_enabled(self.manual_online)
 
     def manual_send(self, action, channel, value):
         if not self.manual_online:
@@ -529,6 +548,9 @@ class Window(QMainWindow):
             return
         if not self.pause_manual_active and not self.manual_worker:
             return
+        if action == 'output' and self.manual_output_states[channel] is not None \
+                and bool(value) == self.manual_output_states[channel]:
+            return  # Already in the verified output state.
         if action == 'output' and value == 1 and not self.pause_manual_active:
             description = self.manual_cards[channel][1].text()
             choice = QMessageBox.question(
@@ -1158,13 +1180,8 @@ class Window(QMainWindow):
 
     def toggle_pause(self):
         if self.paused and self.pause_manual_active:
-            answer = QMessageBox.question(
-                self, 'Resume profile?',
-                'Resume will restore and verify the programmed pause-point state, '
-                'replacing temporary manual settings, before profile time advances. Continue?',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if answer != QMessageBox.Yes:
-                return
+            # Resume is explicitly requested by the user; the runner restores
+            # and verifies the pause-point state before advancing profile time.
             self.pause_manual_active = False
             self.manual_online = False
             self.manual_widgets_enabled(False)
