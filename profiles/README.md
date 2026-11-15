@@ -1,0 +1,1 @@
+Reusable CSV waveforms belong here. Deliberately invalid profiles belong under `profiles/negative_tests/` and must not be run on live hardware.
