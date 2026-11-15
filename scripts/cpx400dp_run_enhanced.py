@@ -23,6 +23,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from cpx400dp_regulation import decode_limit_event
 
 CONFIG_KEYS = {'host', 'channels', 'mode', 'interval_s', 'readback_interval_s', 'log_file', 'ch1_restore', 'ch2_restore', 'initial_ramp_s', 'final_ramp_s', 'progress_interval_s', 'generate_report', 'report_layout', 'abort_on_output_fault'}
 NUMBER = re.compile(r'^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([VA])?\s*$')
@@ -723,6 +724,8 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
         pause_listener = None
         last_pause_write_at = None
         last_pause_state_emit_at = None
+        last_pause_lsr_poll_at = None
+        pause_limit_modes = {ch: None for ch in channels}
         # Kubuntu/POSIX: SIGUSR1 toggles pause and resume. The handler only
         # changes an in-memory flag; it never talks to the instrument.
         pause_wanted = False
@@ -744,13 +747,29 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
             return max(0.0, now - start - paused_total -
                        (now - pause_started if pause_started is not None else 0.0))
 
+        def poll_paused_regulation(sock, pending):
+            # LSR<N>? is a read-and-clear EVENT register, so preserve only
+            # the last unambiguous observed mode and label it as historical.
+            for ch in channels:
+                try:
+                    answer, pending = query_expected(
+                        sock, f'LSR{ch}?', pending,
+                        lambda line: re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', line.strip()) is not None)
+                    pause_limit_modes[ch] = decode_limit_event(
+                        answer, bool(pause_manual_targets[ch][2]), pause_limit_modes[ch])
+                except (OSError, ValueError, ConnectionError):
+                    pause_limit_modes[ch] = None
+            return pending
+
         def emit_pause_manual_state(sock, pending):
             # Programmed settings, not assumed command values, are shown to user.
             states, pending = snapshot(sock, channels, pending)
             readings = {}
             for ch in channels:
                 readings[ch], pending = measure(sock, ch, pending)
-            payload = {str(ch): {'programmed': list(states[ch]), 'measured': readings[ch]}
+            pending = poll_paused_regulation(sock, pending)
+            payload = {str(ch): {'programmed': list(states[ch]), 'measured': readings[ch],
+                                  'regulation': pause_limit_modes[ch]}
                        for ch in channels}
             print('[PAUSE MANUAL STATE] ' + json.dumps(payload, separators=(',', ':')), flush=True)
             return pending
@@ -879,12 +898,14 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
 
         def pause_checkpoint(phase):
             nonlocal pause_started, paused_total, next_readback_at, active_phase, pending
-            nonlocal pause_original, pause_manual_targets, manual_pause_dirty, last_pause_state_emit_at
+            nonlocal pause_original, pause_manual_targets, manual_pause_dirty, last_pause_state_emit_at, last_pause_lsr_poll_at
             active_phase = phase
             if pause_wanted and pause_started is None:
                 pause_started = time.monotonic()
                 manual_pause_dirty = False
                 last_pause_state_emit_at = None
+                last_pause_lsr_poll_at = None
+                pause_limit_modes.update({ch: None for ch in channels})
                 drain_pause_requests()  # never execute old requests from a prior pause
                 # The runner is still the only PSU connection owner.
                 # Capture the intended profile state, not potentially stale
@@ -917,12 +938,17 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 # Reuse the runner's existing measurement samples for the
                 # paused Manual tab; don't add another polling connection.
                 now = time.monotonic()
+                if phase == 'profile' and (last_pause_lsr_poll_at is None or
+                                          now-last_pause_lsr_poll_at >= 1.0):
+                    pending = poll_paused_regulation(sock, pending)
+                    last_pause_lsr_poll_at = now
                 if (phase == 'profile' and
                     (last_pause_state_emit_at is None or now-last_pause_state_emit_at >= .25) and
                     all(ch in latest_readings for ch in channels)):
                     payload = {str(ch): {
                         'programmed': list(pause_manual_targets[ch]),
-                        'measured': list(latest_readings[ch])} for ch in channels}
+                        'measured': list(latest_readings[ch]),
+                        'regulation': pause_limit_modes[ch]} for ch in channels}
                     print('[PAUSE MANUAL STATE] ' + json.dumps(payload, separators=(',', ':')), flush=True)
                     last_pause_state_emit_at = now
                 heartbeat('paused')
