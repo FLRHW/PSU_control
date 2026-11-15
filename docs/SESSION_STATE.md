@@ -4,7 +4,7 @@
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
 **Stable/import branch:** `main` (v13.3 import; no merge performed)  
-**Functional milestone:** **v13.5 development behaviour**, not yet a hardware-validated stable release.  
+**Functional milestone:** **v13.5 development behaviour**, functional hardware test plan completed; awaiting explicit approval for stable release/merge.  
 **Source baseline examined for handover:** `a118b9e0ede1c496101dd46bbe3e3f602cd25601` on `dev` (documentation-only commits follow; **check current HEAD** before writing code).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
@@ -48,6 +48,13 @@
 - **Stage 3 Test B — PASS for paused-interruption programmed restoration (independently log-reviewed, 2026-11-15):** Files provided: `14(1).csv`, `14_console_20261115_163816_660976.log`, `14_measurements_20261115_163816_660976.csv`, `14_preview(1).html`, `14_report_20261115_163816_660976.html`. The two-channel 26 s linear profile ran with 50 ms scheduler intervals and 250 ms readbacks, then paused at profile time **7.200 s**. Three paused-manual output commands were individually readback verified: **CH1 OFF**, **CH2 OFF**, **CH2 ON**. Stop/SIGINT occurred at wall-clock elapsed **21.257 s** with **no resume event**. On cleanup, the original pre-run settings were restored: CH1 **1.000 V / 2.000 A / ON**, CH2 **3.000 V / 4.000 A / OFF**. Both `final_state_verified` entries succeeded on first query attempt. CH1 sampled physical output was **0.987 V** (1.000 V setpoint), classified MATCHED; CH2 physical output check N/A because OFF. **170 successful readbacks, 0 failed, maximum recorded lateness 0.598 ms, 0 output-health warnings**; raw final status queries `*STB?`, `*ESR?`, `EER?`, `QER?` were zero. `local_sent` recorded as the last PSU command; final outcome **INTERRUPTED — cleanup verified**, runner exit code **130** expected for SIGINT. Report correctly labels INTERRUPTED. The log does **not independently establish** front-panel LOCAL unlock or GUI idle/new-run readiness; these remain user-observation checks.
 - Do not merge to `main` solely on Stage 1/Stage 2 user reports; review Stage 3 and evidence, and retain CI validation for the eventual source commit.
 
+## Final Stage 3B hardware observations (user-confirmed, 2026-11-15)
+
+- Following Test B, user explicitly confirmed the **physical CPX400DP front panel returned to LOCAL** and the **GUI returned to its idle state**. These are direct user observations, not deductions from the `local_sent` log.
+- Taken with offline CI (95 tests, 2 skips due to missing recordings), Stage 1 checklist, and independently reviewed Stage 2 / Stage 3A / Stage 3B logs, the planned **v13.5 functional acceptance tests are complete**.
+- No `main` merge, release tag, or code change is authorized by this observation alone. Before release: reconcile `dev` vs `main`, ensure currently tested code is unchanged since its CI pass (documentation-only commits have occurred), and seek explicit approval for merge/tag.
+- Important limits: no evidence for multi-day unattended reliability; 1000-hour profile handling and CV/CC indications remain **future requirements**, not features of v13.5.
+
 ## Next-revision enhancement request (user observation, 2026-11-15)
 
 - **Display per-channel CV / CC regulation status in the Manual Control tab**, including standalone Manual Control and, if practical, paused-profile Manual Control. Current UI shows programmed state, measured voltage/current, and ON/OFF, but not CV/CC.
@@ -78,14 +85,14 @@
 - Historical v13.4 session: reported **94 offline tests passed**; hardware and GUI visual validation were outstanding at that point.
 - Historical v13.5 session: reported **six focused handler checks passed**, but **full regression suite not run**.
 - Older 50 ms scheduling runs and Ctrl+C restoration investigations are covered by the handover; they are evidence for past versions, not a substitute for v13.5 validation.
-- Current `dev` offline suite **passed at commit `69d0e0c`** (95 tests, 2 skipped for unavailable hardware recordings); future source changes require a fresh CI result. Hardware Stages 1 and 2 passed (Stage 2 log-reviewed), and both Stage 3 Test A and Test B **passed log-based restoration checks**. Physical front-panel LOCAL confirmation and GUI readiness after interruption are not independently evidenced by files; no merge to `main` yet. Verify local working tree matches remote branch before hardware testing.
+- Current `dev` offline suite **passed at commit `69d0e0c`** (95 tests, 2 skipped for unavailable hardware recordings); future source changes require a fresh CI result. Hardware Stages 1 and 2 passed (Stage 2 log-reviewed), and both Stage 3 Test A and Test B **passed log-based restoration checks**. Physical front-panel LOCAL confirmation and GUI idle recovery **confirmed by user after Test B**; no merge to `main` yet. Verify local working tree matches remote branch before hardware testing.
 - Software is not a fail-safe protection mechanism; loss of LAN can prevent restoration.
 
 ## Next actions, in order
 
 1. On workstation: `git switch dev && git pull`, then `git status --short && git rev-parse HEAD`.
 2. Assistant checks the automated offline regression for each new `dev` commit before requesting any hardware test; reference successful CI run #43734073069 for the documented baseline. The user is responsible only for physical hardware measurements and interactions.
-3. **Stages 1, 2, 3A and 3B documented PASS for tested functions.** Before considering the v13.5 release, confirm from physical observation that the front panel actually returned to LOCAL and the GUI returned to idle/allowed a new profile after Stage 3B. Then review CI state and decide whether to merge/tag.
+3. **Stages 1, 2, 3A and 3B PASS** for tested functions; physical front-panel LOCAL and GUI idle recovery now user-confirmed. Review the source diff, run/verify latest CI as necessary, then request authorization to merge `dev` into `main` and/or tag v13.5.
 4. If successful, decide on merge of `dev` to `main` and a formal version/tag; do not treat docs changes as validation.
 5. After each meaningful development/testing session, update this file with commit, results, unresolved items and next action. Prefer a short state (about one page) over entire chat histories.
 
