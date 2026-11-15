@@ -56,6 +56,22 @@
 - Keep status queries non-disruptive, check whether any status registers are clear-on-read, avoid degrading 50 ms profile scheduling or interfering with existing diagnostics. Add mocked protocol, state/UI, and no-extra-socket offline tests before any hardware trial.
 - **Deferred until the next software revision.** This entry changes documentation only; Stage 2 and Stage 3 v13.5 testing remain on the current unchanged code.
 
+## Next-revision requirement — long-duration time axis and 50 ms resolution (2026-11-15)
+
+**User request:** Support profiles lasting **at least 1,000 hours (3,600,000 seconds)**, while retaining the option to specify **50 ms (0.05 s)** setpoint updates and closely spaced CSV keyframes. This applies to profile validation/execution and to useful time axes in preview and post-run reports, not just the labels in a graph.
+
+**Engineering implications identified from the currently inspected source:**
+
+- `cpx400dp_run_enhanced.schedule_for()` currently materialises a full list of time slots. At 1,000 hours with a 50 ms period, that is **72,000,000 slots**, so list-based schedule construction/validation/execution is not acceptable. Replace with a lazy/streamed or otherwise bounded-memory schedule, including irregular keyframes and phase boundaries; preserve the 50 ms minimum-spacing rule and deterministic monotonic deadlines.
+- `cpx400dp_report.py` loads the entire measurement CSV into a list and embeds all trace arrays in its HTML/JS; its graph uses array-spread `Math.max(...allTimes)` and constructs large arrays. These patterns must be reworked for long histories. Use streaming aggregation and scalable rendering/downsampling (preserve extrema, transitions, short excursions and ability to inspect zoomed windows); document tradeoffs for enormous recordings.
+- `cpx400dp_preview.py` already limits regularly sampled preview points to 1,201 but includes all keyframes: ensure long-duration and dense-keyframe files remain usable with bounded rendering.
+- Avoid treating **maximum profile duration** and **minimum scheduling interval** as coupled constraints. Accept at least 1,000 h even when the interval is 0.05 s; do not generate 72 million CSV rows or plotting vertices merely to represent a long ramp. Preserve detailed timing precision in the model/log even if the chart auto-selects hours/days as human-readable units.
+- Support intelligent x-axis units (seconds/minutes/hours/days), zoom and pan down to 50 ms-scale regions, with numerically correct cursor/elapsed measurements across long durations. Large timestamp arithmetic, progress percentage, durations and pause/resume accounting require regression tests.
+- A single test setup of 1,000 h at 50 ms would create huge command traffic/logs and run for more than 41 days. **Supporting the profile is not a guarantee of uninterrupted physical PSU communication, timing accuracy or safe unattended operation over that period.** Treat storage, log rotation/streaming, system sleep/reboot, recovery, and network failures as distinct documented concerns.
+- Add tests for a synthetic 1,000 h profile with 50 ms interval that complete quickly **without iterating every tick**, plus targeted checks for schedule gaps at irregular keyframes, late-stage timestamps, zoom/cursor accuracy and bounded-memory report processing.
+
+**Status:** Requirement queued for a future software revision alongside per-channel CV/CC indicators. Do **not** modify the ongoing v13.5 Stage 2/3 hardware-test baseline to implement this feature.
+
 ## Known validation evidence and gaps
 
 - Historical v13.4 session: reported **94 offline tests passed**; hardware and GUI visual validation were outstanding at that point.
