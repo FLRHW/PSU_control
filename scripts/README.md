@@ -1,0 +1,1 @@
+Python application source belongs here. Launch from repository root with `python3 scripts/cpx400dp_gui.py` after importing the release package.
