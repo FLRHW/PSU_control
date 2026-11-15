@@ -207,7 +207,14 @@ function svgEl(tag,attrs,text){const e=document.createElementNS(NS,tag);for(cons
 function add(svg,tag,attrs,text){const e=svgEl(tag,attrs,text);svg.appendChild(e);return e;}
 function fmt(n){if(Math.abs(n)>=100)return n.toFixed(0);if(Math.abs(n)>=10)return n.toFixed(1);return n.toFixed(2).replace(/0+$/,'').replace(/\\.$/,'');}
 function timeUnit(span){return span>=172800?[86400,'days']:span>=7200?[3600,'h']:span>=120?[60,'min']:[1,'s'];}
-function timeLabel(seconds,span){const [factor,unit]=timeUnit(span);return fmt(seconds/factor)+' '+unit;}
+function timeLabel(seconds,span){
+ const [factor,unit]=timeUnit(span);
+ // Tick labels must not collapse to the same integer when zooming to
+ // 50 ms near the end of a 1000-hour experiment.
+ const grid=(span/factor)/5;
+ const places=Math.min(6,Math.max(0,Math.ceil(-Math.log10(Math.max(grid,1e-12)))+1));
+ return (seconds/factor).toFixed(places)+' '+unit;
+}
 const VIEWS=new WeakMap();
 function render(panel){
  const view=VIEWS.get(panel);
