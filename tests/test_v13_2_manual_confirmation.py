@@ -27,21 +27,26 @@ class ManualConfirmationTests(unittest.TestCase):
         ns['manual_send'](obj,'output',1,1)
         obj.send_pause_manual_command.assert_called_once_with('output',1,1)
 
-    def test_standalone_enable_still_requires_confirmation(self):
+    def test_standalone_enable_does_not_require_confirmation(self):
         fn=self.method('manual_send')
-        class FakeBox:
-            Yes=1; No=2; called=0
+        class TrapBox:
             @classmethod
             def question(cls,*args):
-                cls.called+=1
-                return cls.No
-        ns={'QMessageBox':FakeBox}
+                raise AssertionError('manual output enable must not ask for confirmation')
+        ns={'QMessageBox':TrapBox}
         exec(compile(ast.Module(body=[fn],type_ignores=[]),'manual_send','exec'),ns)
-        state=SimpleNamespace(text=Mock(return_value='Programmed: 2 V / 1 A'))
-        obj=SimpleNamespace(manual_online=True,pause_manual_active=False,manual_worker=Mock(),
-                            manual_cards={1:(None,state,None,None)},manual_output_states={1:False,2:False})
+        obj=SimpleNamespace(manual_online=True,pause_manual_active=False,
+                            manual_worker=Mock(),manual_output_states={1:False,2:False})
         ns['manual_send'](obj,'output',1,1)
-        self.assertEqual(FakeBox.called,1)
+        obj.manual_worker.request.assert_called_once_with('output',1,1)
+
+    def test_redundant_enable_is_not_sent(self):
+        fn=self.method('manual_send')
+        ns={}
+        exec(compile(ast.Module(body=[fn],type_ignores=[]),'manual_send','exec'),ns)
+        obj=SimpleNamespace(manual_online=True,pause_manual_active=False,
+                            manual_worker=Mock(),manual_output_states={1:True,2:False})
+        ns['manual_send'](obj,'output',1,1)
         obj.manual_worker.request.assert_not_called()
 
     def test_success_is_console_only(self):
