@@ -23,7 +23,7 @@ class ManualConfirmationTests(unittest.TestCase):
         ns={'QMessageBox':TrapBox}
         exec(compile(ast.Module(body=[fn],type_ignores=[]),'manual_send','exec'),ns)
         obj=SimpleNamespace(manual_online=True,pause_manual_active=True,paused=True,running=True,
-              stopping=False,run_channels=(1,),manual_worker=None,send_pause_manual_command=Mock())
+              stopping=False,run_channels=(1,),manual_worker=None,manual_output_states={1:False,2:False},send_pause_manual_command=Mock())
         ns['manual_send'](obj,'output',1,1)
         obj.send_pause_manual_command.assert_called_once_with('output',1,1)
 
@@ -39,7 +39,7 @@ class ManualConfirmationTests(unittest.TestCase):
         exec(compile(ast.Module(body=[fn],type_ignores=[]),'manual_send','exec'),ns)
         state=SimpleNamespace(text=Mock(return_value='Programmed: 2 V / 1 A'))
         obj=SimpleNamespace(manual_online=True,pause_manual_active=False,manual_worker=Mock(),
-                            manual_cards={1:(None,state,None,None)})
+                            manual_cards={1:(None,state,None,None)},manual_output_states={1:False,2:False})
         ns['manual_send'](obj,'output',1,1)
         self.assertEqual(FakeBox.called,1)
         obj.manual_worker.request.assert_not_called()
