@@ -551,15 +551,6 @@ class Window(QMainWindow):
         if action == 'output' and self.manual_output_states[channel] is not None \
                 and bool(value) == self.manual_output_states[channel]:
             return  # Already in the verified output state.
-        if action == 'output' and value == 1 and not self.pause_manual_active:
-            description = self.manual_cards[channel][1].text()
-            choice = QMessageBox.question(
-                self, f'Enable channel {channel}?',
-                f'Enable PSU channel {channel}?\n{description}\n'
-                'Confirm the connected load and safe voltage/current limits.',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if choice != QMessageBox.Yes:
-                return
         if self.pause_manual_active:
             self.send_pause_manual_command(action, channel, value)
         else:
