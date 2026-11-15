@@ -1,0 +1,31 @@
+﻿# TEST: both CPX400DP channels initially ON, 250 ms readbacks, and restoration.
+# IMPORTANT: Before starting, manually set BOTH outputs ON at safe voltages/current limits.,
+# Channel 1: resistor load; keep below its 20 V limit (this test reaches only 8 V).,,
+# Channel 2: no load; keep terminals insulated and avoid touching them while energised.,,
+# Restore true snapshots both channels before the run and returns programmed V/I/ON state afterward.,,
+# A hold cell means do NOT send any output ON/OFF commands during the profile.,,
+# Ramps are from each channel's CURRENT settings to the first row and back at the end.,,
+# Keep the initial settings safe: they are not restricted by values in the profile table.,,
+# 50 ms setpoint updates, 250 ms voltage/current readbacks (two channels), heartbeat every 10 s.
+# host=169.254.51.7,,
+# channels=1,2,
+# mode=linear,,
+# interval_s=0.05,,
+# readback_interval_s=0.25,,
+# progress_interval_s=10,,
+# initial_ramp_s=2,,
+# final_ramp_s=2,,
+# ch1_restore=true,,
+# ch2_restore=true,,
+# log_file=10_measurements.csv,,
+# generate_report=true,,
+# report_layout=combined,,
+
+time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable,ch2_voltage_v,ch2_current_limit_a,ch2_enable
+0,3,1.5,hold,2,0.5,hold
+2,6,1.5,hold,5,0.5,hold
+4,8,1.5,hold,8,0.5,hold
+6,5,1.5,hold,4,0.5,hold
+8,3,1.5,1,2,0.5,hold
+15,10,2,1,5,1,hold
+20,5,1,1,5,1,hold

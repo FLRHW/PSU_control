@@ -1,0 +1,80 @@
+# CPX400DP v12 irregular spacing stress test. CH1 only; CH2 not controlled.
+# Test purpose: consecutive actual voltage commands with irregular 50/100/150/200/250 ms intervals.
+# This tests the CURRENT runner's minimum permitted 50ms setpoint scheduling, NOT sub-50ms SCPI command spacing.
+# CH1 load: same approximately 15 ohm resistor; 2-3V (0.27-0.60 W).
+# Maximum CH1 current 0.2 A; supply current limit 1.5 A, so CC is not expected.
+# Check load rating and wiring first. Stop if PSU displays FAIL or output behaves unexpectedly.
+# Runs 8 s with explicit OFF dwell and original channel programmed state restored afterward.
+# host=169.254.51.7
+# channels=1
+# mode=step
+# interval_s=0.05
+# readback_interval_s=0.1
+# initial_ramp_s=0
+# final_ramp_s=0
+# progress_interval_s=10
+# ch1_restore=true
+# abort_on_output_fault=true
+# generate_report=true
+# report_layout=combined
+# log_file=17_irregular_setpoint_spacing_measurements.csv
+time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable
+0.00,2.0,1.5,0
+0.30,2.0,1.5,1
+0.35,3.0,1.5,hold
+0.45,2.0,1.5,hold
+0.50,3.0,1.5,hold
+0.65,2.0,1.5,hold
+0.70,3.0,1.5,hold
+0.90,2.0,1.5,hold
+0.95,3.0,1.5,hold
+1.00,2.0,1.5,hold
+1.10,3.0,1.5,hold
+1.35,2.0,1.5,hold
+1.40,3.0,1.5,hold
+1.55,2.0,1.5,hold
+1.65,3.0,1.5,hold
+1.70,2.0,1.5,hold
+1.90,3.0,1.5,hold
+1.95,2.0,1.5,hold
+2.00,3.0,1.5,hold
+2.25,2.0,1.5,hold
+2.35,3.0,1.5,hold
+2.40,2.0,1.5,hold
+2.55,3.0,1.5,hold
+2.60,2.0,1.5,hold
+2.80,3.0,1.5,hold
+2.85,2.0,1.5,hold
+2.95,3.0,1.5,hold
+3.00,2.0,1.5,hold
+3.25,3.0,1.5,hold
+3.30,2.0,1.5,hold
+3.35,3.0,1.5,hold
+3.50,2.0,1.5,hold
+3.60,3.0,1.5,hold
+3.80,2.0,1.5,hold
+3.85,3.0,1.5,hold
+3.90,2.0,1.5,hold
+4.00,3.0,1.5,hold
+4.15,2.0,1.5,hold
+4.20,3.0,1.5,hold
+4.40,2.0,1.5,hold
+4.45,3.0,1.5,hold
+4.55,2.0,1.5,hold
+4.60,3.0,1.5,hold
+4.85,2.0,1.5,hold
+4.90,3.0,1.5,hold
+5.05,2.0,1.5,hold
+5.10,3.0,1.5,hold
+5.20,2.0,1.5,hold
+5.40,3.0,1.5,hold
+5.45,2.0,1.5,hold
+5.50,3.0,1.5,hold
+5.60,2.0,1.5,hold
+5.75,3.0,1.5,hold
+5.80,2.0,1.5,hold
+6.00,3.0,1.5,hold
+6.05,2.0,1.5,hold
+6.15,3.0,1.5,hold
+7.20,3.0,1.5,0
+8.00,3.0,1.5,hold

@@ -1,0 +1,59 @@
+# CPX400DP v10 combined hardware validation; CH1 ~15 ohm resistor; CH2 unloaded.
+# CAUTION: VERIFY CH1 up to 10V and CH2 unloaded, with independent scope monitoring.
+# NEVER run on the previous unstable 40 ms setting. Stop immediately on FAIL.
+# CH1 expected initially ON, CH2 OFF; the runner snapshots/restores both.
+# Linear interpolation: small/large changes are formed by 50ms-spaced keyframes, not true instantaneous steps.
+# Phase schedule: initial ramp 2s; main 26s; final ramp 2s; plus verification/cleanup.
+# Main profile: CH1 starts OFF at time zero and turns ON after 50 ms, creating a >0.5V rising edge for the oscilloscope trigger.
+# Main profile features: constant voltage/limit, slow ramps, fast 50ms transitions,
+# CH1 OFF/ON switching, CH2 OFF/ON/OFF/ON/OFF, and HOLD segments on both channels.
+# All voltages at most 9.5V; CH1 current limit at least 1A; CH2 at most 5.0V, 0.5A.
+# host=169.254.51.7
+# channels=1,2
+# mode=linear
+# interval_s=0.05
+# readback_interval_s=0.25
+# initial_ramp_s=2
+# final_ramp_s=2
+# progress_interval_s=10
+# log_file=14_invalid20_measurements.csv
+# ch1_restore=true
+# ch2_restore=true
+# generate_report=true
+# report_layout=combined
+time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable,ch2_voltage_v,ch2_current_limit_a,ch2_enable
+0,2.5,1.5,0,2.0,0.5,0
+0.05,2.5,1.5,1,2.0,0.5,hold
+1.5,2.5,1.5,hold,2.0,0.5,hold
+3,5.0,1.5,hold,2.0,0.5,hold
+4,5.0,1.5,hold,2.0,0.5,1
+4.05,5.08,1.5,hold,2.05,0.5,hold
+5.5,5.08,1.5,hold,4.0,0.5,hold
+6,8.5,1.45,hold,5.0,0.5,hold
+6.05,8.55,1.45,hold,5.0,0.5,hold
+7,8.55,1.45,hold,5.0,0.5,hold
+8.5,3.0,1.25,hold,2.0,0.5,hold
+9,3.0,1.25,hold,2.0,0.5,0
+9.05,3.08,1.25,hold,2.0,0.5,hold
+10.5,3.08,1.25,hold,2.0,0.5,hold
+10.55,6.08,1.25,hold,2.0,0.5,hold
+11.5,8.8,1.25,hold,2.0,0.5,hold
+12,8.8,1.25,0,2.0,0.5,hold
+12.05,5.5,1.3,hold,2.0,0.5,hold
+13,4.0,1.3,hold,2.0,0.5,hold
+13.95,4.0,1.3,hold,2.0,0.5,hold
+14,4.0,1.3,1,2.0,0.5,hold
+14.05,4.05,1.3,hold,2.0,0.5,hold
+15.5,7.0,1.6,hold,2.0,0.5,hold
+17,7.0,1.6,hold,2.0,0.5,hold
+18,7.0,1.6,hold,2.0,0.5,1
+18.05,7.05,1.6,hold,2.05,0.5,hold
+19,9.5,1.75,hold,4.0,0.5,hold
+20.5,9.5,1.75,hold,4.0,0.5,hold
+20.55,9.45,1.7,hold,4.0,0.5,hold
+22.5,6.0,1.4,hold,2.0,0.5,hold
+23,6.0,1.4,hold,2.0,0.5,0
+23.05,6.02,1.4,hold,2.0,0.5,hold
+24.0,6.02,1.4,hold,2.0,0.5,hold
+25.5,3.0,1.5,hold,2.0,0.5,hold
+26.02,3.0,1.5,hold,2.0,0.5,hold

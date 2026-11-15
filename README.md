@@ -1,31 +1,34 @@
-# CPX400DP PSU Control
+# CPX400DP PSU Control — v13.3
 
-Python-based controller for the Aim-TTi CPX400DP power supply. Includes a profile runner, virtual manual-control panel, Ethernet discovery, logging, HTML reports, and offline tests.
+Linux/Kubuntu Python control application for Aim-TTi CPX400DP PSU, supporting profile execution, pause/manual/resume, Ethernet discovery, interactive reports and standalone manual control.
 
-## Repository layout
+## Layout
 
-- `scripts/` — executable Python application modules
-- `profiles/` — reusable waveform CSV profiles; `profiles/negative_tests/` contains deliberately invalid examples (do not run on hardware)
-- `tests/` — offline regression tests
-- `docs/` — operating notes and historical release instructions
-- `reports/` — local generated measurements, console logs, plots and HTML reports (**ignored by Git**)
+- `scripts/` — application and SCPI modules
+- `profiles/` — reusable legacy and waveform-only CSV profiles
+- `profiles/negative_tests/` — **deliberately invalid fixtures; never run on hardware**
+- `tests/` — offline regression suite
+- `docs/` — operating instructions and release history
+- `reports/` — untracked local output (measurement logs, reports, etc.)
 
-## Start
-
-On Kubuntu, from the repository root:
+## Run
 
 ```bash
 python3 scripts/cpx400dp_gui.py
 ```
 
-Run offline tests:
+Choose a profile from `profiles/` using the GUI. Set the output folder to `reports/` for generated files.
+
+## Tests
 
 ```bash
 PYTHONPATH=scripts python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
-The application may need a compatible Qt binding and matplotlib. Consult `docs/` for requirements and details. Avoid running deliberately invalid profiles on live hardware.
+## Formatting change
 
-## Source of truth
+The manual panel's voltage/current spinboxes and live displayed V/A values now show **two decimal places**. Internally stored precision, SCPI payloads, and logged measurements are not rounded by this display-only change.
 
-Commit application source and reusable profiles. Keep generated reports and large scope captures local, outside Git history. Hardware-output commands can energize loads; verify programmed limits and output enable states before testing.
+## Git
+
+Only version-control scripts, profiles, tests and documentation. `reports/` and large scope CSVs are excluded. Keep secrets and local connection details out of commits.

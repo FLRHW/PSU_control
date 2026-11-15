@@ -1,0 +1,31 @@
+# CPX400DP v9 validated baseline comparison (50 ms); not a speed-limit stress test.
+# CH1: approximately 15 ohm resistor, initially output ON at 2.270 V / 1.500 A.
+# CH2: UNLOADED, initially output OFF at 13.750 V / 1.280 A; keep OFF throughout.
+# CH1 peaks at 10 V (approximately 0.67 A / 6.7 W into 15 ohms), below the 20 V safety limit.
+# CH2 programmed settings change, but its enable column is HOLD for the entire profile.
+# v9 defaults: 50 ms setpoints, 250 ms readbacks; 2 s initial/final ramps.
+# Stop if CH1 exceeds 20 V, CH2 unexpectedly turns ON, FAIL indicators appear,
+# the trace does not follow the program, or the runner reports errors/failed restoration.
+# host=169.254.51.7
+# channels=1,2
+# mode=linear
+# interval_s=0.05
+# readback_interval_s=0.25
+# progress_interval_s=10
+# initial_ramp_s=2
+# final_ramp_s=2
+# ch1_restore=true
+# ch2_restore=true
+# log_file=12_v9_50ms_measurements.csv
+# generate_report=true
+# abort_on_output_fault=true
+# report_layout=combined
+
+time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable,ch2_voltage_v,ch2_current_limit_a,ch2_enable
+0,3,1.5,hold,2,0.5,hold
+2,6,1.5,hold,5,0.5,hold
+4,8,1.5,hold,8,0.5,hold
+6,5,1.5,hold,4,0.5,hold
+8,3,1.5,1,2,0.5,hold
+15,10,2,1,5,1,hold
+20,5,1,1,5,1,hold
