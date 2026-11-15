@@ -133,13 +133,13 @@ def generate_preview(profile_path, output_path=None, load_profile=None, at_time=
             end = stages[j+1][0] if j+1 < len(stages) else duration
             if end <= t: continue
             color = '#cce8d9' if state == 'ON' else '#e3e7ed' if state == 'OFF' else '#f0e6c8'
-            strip.broken_barh([(t, end-t)], (0, 1), facecolors=color,
+            strip.broken_barh([(t / time_factor, (end-t) / time_factor)], (0, 1), facecolors=color,
                               edgecolors='#a0a8b1', linewidth=.45,
                               hatch='//' if source == 'HOLD' else None)
             if (end-t) >= duration*0.07:
                 caption = ('HOLD (ON)' if state == 'ON' else
                            'HOLD (OFF)' if state == 'OFF' else 'HOLD (?)') if source == 'HOLD' else source
-                strip.text((t+end)/2, .5, caption, ha='center', va='center',
+                strip.text((t+end)/(2*time_factor), .5, caption, ha='center', va='center',
                            fontsize=7.5, color='#253145')
         strip.set_ylim(0,1); strip.set_yticks([]); strip.set_xticks([])
         strip.set_ylabel('Output', rotation=0, labelpad=28, fontsize=9)
