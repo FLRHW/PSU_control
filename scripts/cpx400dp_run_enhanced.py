@@ -533,8 +533,31 @@ def ramp_values(a, b, fraction):
 
 
 def schedule_for(duration, interval, extra=()):
-    ticks = [i*interval for i in range(math.ceil(duration/interval)) if i*interval < duration]
-    return sorted(set(round(t, 9) for t in ticks + list(extra) + [duration]))
+    """Yield ticks in time order without materialising the regular time grid.
+
+    A 1000-hour run at 50 ms has 72 million regular ticks; only the CSV
+    keyframes need to be held in memory. Preserve 9-decimal tick rounding
+    and de-duplication from the legacy scheduler.
+    """
+    keyframes = sorted(set(round(t, 9) for t in extra) | {round(duration, 9)})
+    n_regular = math.ceil(duration / interval)
+    regular_i = 0
+    extra_i = 0
+    previous = None
+    while regular_i < n_regular or extra_i < len(keyframes):
+        regular = round(regular_i * interval, 9) if regular_i < n_regular else math.inf
+        if regular >= round(duration, 9):
+            regular = math.inf
+            regular_i = n_regular
+        keyframe = keyframes[extra_i] if extra_i < len(keyframes) else math.inf
+        tick = min(regular, keyframe)
+        if regular == tick:
+            regular_i += 1
+        if keyframe == tick:
+            extra_i += 1
+        if tick != previous:
+            yield tick
+            previous = tick
 
 
 
@@ -560,11 +583,11 @@ MIN_SETPOINT_GAP_S = 0.050
 
 
 def validate_schedule(points, interval, initial_ramp, final_ramp, restoring):
-    """Check every unique planned tick (including extra CSV keyframe timestamps).
+    """Check minimum tick spacing in O(number of CSV keyframes), not O(ticks).
 
-    The phases are checked independently: connection latency and live state
-    verification can create variable gaps at phase boundaries, and this is not
-    a hard real-time interlock. No PSU connection is opened by this function.
+    Regular ticks are interval apart by construction. Only ticks adjacent
+    to an irregular keyframe or phase endpoint can create shorter gaps.
+    Phases are checked independently; no PSU connection is opened.
     """
     phases = [('main profile', points[-1][0], [t for t, _ in points])]
     if initial_ramp > 0:
@@ -573,9 +596,26 @@ def validate_schedule(points, interval, initial_ramp, final_ramp, restoring):
         phases.append(('final ramp', final_ramp, []))
     min_found = None
     for label, duration, keyframes in phases:
-        ticks = schedule_for(duration, interval, keyframes)
+        count = math.ceil(duration / interval)
+        # Inspect 0, the final regular ticks, and neighbouring regular
+        # ticks for every user keyframe / phase boundary. This is exact
+        # under the same 9-decimal rounding used by schedule_for().
+        candidates = {0.0, round(duration, 9)}
+        for t in [*keyframes, duration]:
+            index = max(0, min(count - 1, math.floor(t / interval)))
+            for i in (index - 1, index, index + 1):
+                if 0 <= i < count:
+                    tick = round(i * interval, 9)
+                    if tick < round(duration, 9):
+                        candidates.add(tick)
+            candidates.add(round(t, 9))
+        if count >= 2:
+            # A regular interior pair is interval apart, even when no
+            # nearby CSV keyframe exists (and no endpoints are close).
+            min_found = interval if min_found is None else min(min_found, interval)
+        ticks = sorted(candidates)
         for left, right in zip(ticks, ticks[1:]):
-            gap = right-left
+            gap = right - left
             min_found = gap if min_found is None else min(min_found, gap)
             if gap < MIN_SETPOINT_GAP_S - 1e-8:
                 raise ValueError(
@@ -639,7 +679,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
     if log_path.resolve() == path.resolve():
         raise ValueError('Measurement log must not overwrite the input profile')
     duration = pts[-1][0]
-    schedule = schedule_for(duration, interval, (t for t, _ in pts))
+    # Lazy schedule; recreate its iterator only at execution, never before I/O.
     smallest_gap = validate_schedule(pts, interval, initial_ramp, final_ramp,
                                      any(restore_flags.values()))
     print(f'Host {host}:9221; channels {channels}; {mode}; {interval:g}s steps; '
@@ -1176,7 +1216,9 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 profile_pause_base = paused_total
                 print('Running main profile ...', flush=True)
                 heartbeat('profile', force=True)
-                for t in schedule:
+                executed_slots = 0
+                for t in schedule_for(duration, interval, (time_s for time_s, _ in pts)):
+                    executed_slots += 1
                     wait_until(profile_start + t - profile_pause_base, 'profile')
                     late = max(0.0, time.monotonic() - profile_start - t - paused_total + profile_pause_base)
                     max_late = max(max_late, late)
@@ -1222,7 +1264,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                                         {ch: output_known[ch] for ch in channels})
                     heartbeat('profile')
                 profile_finished = True
-                print(f'Finished {len(schedule)} time slots; max scheduling lateness {max_late*1000:.3f} ms')
+                print(f'Finished {executed_slots} time slots; max scheduling lateness {max_late*1000:.3f} ms')
             except OutputFaultAbort as exc:
                 print(f'[OUTPUT FAULT ABORT] {exc}; restoring original settings', flush=True)
                 log('experiment_fault', note=str(exc))
