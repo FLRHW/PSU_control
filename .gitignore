@@ -1,0 +1,13 @@
+# Local reports and temporary files
+reports/*
+!reports/.gitkeep
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+*.egg-info/
+*_measurements*.csv
+*_console*.log
+*_report*.html
+*_preview.html
+*.tmp
