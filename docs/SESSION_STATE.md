@@ -40,19 +40,26 @@
 - Established this `SESSION_STATE.md`.
 - **No source or test code changed, no automated tests executed, no physical PSU tests performed during this documentation session.**
 
+## v13.5 staged physical validation (reported by user, 2026-11-15)
+
+- **Stage 1 — PASS (user-reported):** Completed the full standalone Manual Control checklist: connection and programmed readback, no confirmation when enabling output, appropriate enabled/disabled buttons and colour indicators, disabling output, voltage/current-limit commands and readback, disconnect with settings preserved and LOCAL mode. No per-step logs or recordings supplied; this is **user-reported hardware validation**, not independently reviewed instrument telemetry.
+- **Stage 2 — PENDING:** Pause a safe, simple running profile; temporarily change voltage/output using paused-profile manual controls; verify readbacks and correct restoration of the held pause-point state before confirmation-free resume. Confirm experiment time excludes pause and final restoration succeeds. Record console/measurements/report.
+- **Stage 3 — PENDING:** Stop during live execution/paused state, verify programmed restoration, LOCAL-last and reporting.
+- Do not merge to `main` solely on Stage 1.
+
 ## Known validation evidence and gaps
 
 - Historical v13.4 session: reported **94 offline tests passed**; hardware and GUI visual validation were outstanding at that point.
 - Historical v13.5 session: reported **six focused handler checks passed**, but **full regression suite not run**.
 - Older 50 ms scheduling runs and Ctrl+C restoration investigations are covered by the handover; they are evidence for past versions, not a substitute for v13.5 validation.
-- Current `dev` offline suite **passed at commit `69d0e0c`** (95 tests, 2 skipped for unavailable hardware recordings); future source changes require a fresh CI result. Physical v13.5 validation **remains pending**. Verify local working tree matches remote branch before hardware testing.
+- Current `dev` offline suite **passed at commit `69d0e0c`** (95 tests, 2 skipped for unavailable hardware recordings); future source changes require a fresh CI result. Hardware Stage 1 passed by user report; Stages 2 and 3 remain pending. Verify local working tree matches remote branch before hardware testing.
 - Software is not a fail-safe protection mechanism; loss of LAN can prevent restoration.
 
 ## Next actions, in order
 
 1. On workstation: `git switch dev && git pull`, then `git status --short && git rev-parse HEAD`.
 2. Assistant checks the automated offline regression for each new `dev` commit before requesting any hardware test; reference successful CI run #43734073069 for the documented baseline. The user is responsible only for physical hardware measurements and interactions.
-3. Run low-power hardware checks: standalone ON/OFF and indicators; paused-profile manual changes, Resume restoration, Stop during pause, no popup dialogs, final `LOCAL`. Record report CSV/HTML/console and actual PSU load.
+3. **Stage 1 completed (user-reported).** Next request hardware Stage 2: pause/profile manual changes/verified resume and timing. Then Stage 3: Stop/restoration/LOCAL. Record report CSV/HTML/console and actual PSU load.
 4. If successful, decide on merge of `dev` to `main` and a formal version/tag; do not treat docs changes as validation.
 5. After each meaningful development/testing session, update this file with commit, results, unresolved items and next action. Prefer a short state (about one page) over entire chat histories.
 
