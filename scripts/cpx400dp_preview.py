@@ -79,6 +79,16 @@ def generate_preview(profile_path, output_path=None, load_profile=None, at_time=
 
     times = _sample_times(points, points[-1][0], mode)
     values = [interp(points, t, mode) for t in times]
+    duration = points[-1][0]
+    if duration >= 172800:
+        time_factor, time_unit = 86400., 'days'
+    elif duration >= 7200:
+        time_factor, time_unit = 3600., 'hours'
+    elif duration >= 120:
+        time_factor, time_unit = 60., 'minutes'
+    else:
+        time_factor, time_unit = 1., 'seconds'
+    plot_times = [t / time_factor for t in times]
     sections = []
     for ch in channels:
         fig, ax_v = plt.subplots(figsize=(6.8, 3.6))
@@ -86,14 +96,14 @@ def generate_preview(profile_path, output_path=None, load_profile=None, at_time=
         fig.subplots_adjust(left=0.105, right=0.88, bottom=0.36, top=0.92)
         voltages = [row[ch][0] for row in values]
         currents = [row[ch][1] for row in values]
-        lv, = ax_v.plot(times, voltages, color='#2369b7', lw=2, label='Voltage setpoint')
-        li, = ax_i.plot(times, currents, color='#c36918', lw=2, label='Current limit')
+        lv, = ax_v.plot(plot_times, voltages, color='#2369b7', lw=2, label='Voltage setpoint')
+        li, = ax_i.plot(plot_times, currents, color='#c36918', lw=2, label='Current limit')
         ax_v.set_ylabel('Voltage (V)', color='#2369b7')
         ax_i.set_ylabel('Current (A)', color='#c36918')
-        ax_v.set_xlim(0, max(0.001, points[-1][0]))
+        ax_v.set_xlim(0, max(0.001 / time_factor, duration / time_factor))
         ax_v.set_ylim(bottom=0)
         ax_i.set_ylim(bottom=0)
-        ax_v.set_xlabel('Profile time (seconds)')
+        ax_v.set_xlabel(f'Profile time ({time_unit})')
         # The strip shows effective enable state (ON/OFF/unknown), and
         # hatching distinguishes inherited HOLD from an explicit command.
         # Do not share x ticks with the main axes: set_xticks([]) on a
