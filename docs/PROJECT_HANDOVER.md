@@ -8,6 +8,12 @@
 
 > **Critical distinction:** This is lab automation software, **not a hardware safety interlock**. On communications failure the PSU may retain its last commanded settings. An instrument readback is not proof of terminal voltage, current, or safety.
 
+## v13.6 work started — long-duration scheduling (2026-11-15)
+
+The first development increment replaces the former eagerly materialised `schedule_for()` list with an ordered generator that combines 50 ms regular ticks, CSV keyframes and the final endpoint. `validate_schedule()` now examines regular-grid boundaries and neighbouring irregular keyframes in memory bounded by the CSV keyframe count, rather than building and inspecting tens of millions of slots. The runner records completed tick count incrementally instead of evaluating `len(schedule)`. New offline tests are in `tests/test_v13_6_long_schedule.py`, including a synthetic 1,000-hour/50 ms schedule and rejection of keyframes violating the 50 ms minimum.
+
+**Scope:** scheduler memory scaling only. This does not yet prove end-to-end 1,000-hour operation; the report generator still loads CSV rows into memory and embeds all data in HTML. High-density keyframe performance, durable logs, recovery from outages or host shutdown, physical timing across days, and CV/CC mode display remain planned. Preserve the v13.5 verified single-socket, restoration, pause/resume and LOCAL-last invariants. Do not describe any v13.6 changes as hardware validated until the user runs the corresponding physical tests.
+
 ## 1. Project objective and environment
 
 Control an **Aim-TTi CPX400DP** dual-channel programmable power supply from **Kubuntu/Linux**, loading a CSV profile of voltage setpoints, current limits and explicit output-enable actions. Support either stepwise or piecewise-linear profiles, sufficiently short command intervals to emulate ramps, readback logging, offline previews, interactive post-run reports and manual operation.
