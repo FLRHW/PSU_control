@@ -9,6 +9,43 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Current v13.6 increment — user-requested layout and route audit (2026-11-16)
+
+- **Implemented on `dev`:** Removed all Profile Runner
+  `CHx initially HOLD`, `CHx HOLD: initial output state retained`
+  and `CHx OFF throughout` preview messages and the toolbar
+  info label. The user explicitly requested that the HOLD text not
+  appear anywhere in the GUI. **No CSV, output-control, snapshot,
+  validation or restoration semantics changed**; preview failures
+  still appear in console/status.
+- **Implemented on `dev`:** moved **Network settings…** immediately
+  right of the Profile duration field, removing the separate
+  left-column row to reclaim vertical graph space.
+- **Implemented on `dev`:** **Inspect routes** button in the
+  Network settings dialog, calling a strictly read-only
+  `ip -j -4 route show table main` audit. Reports overlapping
+  non-host IPv4 prefixes across different devices, and ignores
+  /32 host-route exceptions. No `nmcli`, `sudo` or route writes.
+- **Offline tests added/updated** in `tests/test_v13_6_network_dialog.py`
+  and `tests/test_v13_6_network_setup.py`.
+- **Hardware status:** current user workstation has NOT yet
+  run this new layout or route-audit increment. Previously verified
+  Test connection, Manual Control and 10.csv run remain the last
+  physical tests. Persistent NetworkManager setup, reboot survival
+  and overlap-safe configuration remain **not implemented/verified**.
+- **User next step once CI is green:** `git switch dev; git pull --ff-only
+  origin dev; python3 scripts/cpx400dp_gui.py`. Confirm HOLD text is
+  absent and **Network settings…** is beside Profile duration. In
+  that dialog, click **Inspect routes** (read-only) and send the
+  message shown. Do not run `Prepare adapter…`, change routes or
+  reboot until persistence is safely designed.
+- **Engineering workflow preference:** user explicitly authorised
+  proceeding with subsequent offline coding, regression checks and
+  documentation rather than stopping after every small increment
+  for another "go ahead". Request user input only for actual
+  instrument tests, OS networking authorisation and decisions that
+  require hardware/user approval.
+
 ## Network settings dialog hardware acceptance — PASS (2026-11-16)
 
 - User pulled the PyQt5 `QDialog` import correction; the GUI launched
