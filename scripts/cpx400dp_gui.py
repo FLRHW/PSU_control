@@ -1502,9 +1502,9 @@ class Window(QMainWindow):
                 self.phase_label.setText('Phase: Connection failed — no profile commands')
                 QMessageBox.warning(
                     self, 'PSU connection failed',
-                    'The runner could not establish a verified control connection.\\n'
+                    'The runner could not establish a verified control connection.\n'
                     'No profile commands were issued and no PSU restoration was needed '
-                    'by this attempt.\\n\\n'
+                    'by this attempt.\n\n'
                     'Check the Run output for the connection error. '
                     'If another application controls the PSU, disconnect it first.')
             elif exit_code == 2 and self.success_summary:
