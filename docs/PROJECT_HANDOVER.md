@@ -33,9 +33,15 @@ exception had disappeared after network/link state changes. This
 explains failed socket establishment to Rigol, not necessarily the
 separate intermittent DSRemote screen_thread.cpp waveform-read error.
 
-A safe temporary remedy was recommended (user has not confirmed
-executing it this time):
+**User confirmed executing the temporary remedy successfully:**
 `sudo ip route replace 169.254.179.79/32 dev enp3s0f1 src 169.254.10.1`.
+Subsequent `ip route get` selected built-in `enp3s0f1` for Rigol
+`169.254.179.79` (source `169.254.10.1`) and dock
+`enx0c3796303396` for PSU `169.254.51.7` (source `169.254.51.8`).
+Rigol answered **4/4 pings with 0% loss**, mean **0.273 ms**
+(min 0.202 ms; max 0.349 ms). **DSRemote application reconnection is
+not yet confirmed** by the user; ping alone tests IP reachability,
+not DSRemote waveform transfer or scope service health.
 No OS network configuration was changed by the assistant. Next
 work is persistent, interface-specific routing that does not disrupt
 other existing connections; any mutation requires user approval.
