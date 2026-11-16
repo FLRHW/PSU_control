@@ -45,15 +45,39 @@ class NetworkSetupTests(unittest.TestCase):
         calls=[]
         def run(args,**kw):
             calls.append(args)
+            if args[0] == 'ip':
+                return types.SimpleNamespace(stdout='[]')
             return types.SimpleNamespace(stdout='--')
         with patch.object(net,'adapter_details',return_value=[DOCK]):
             result=net.setup_ethernet_link_local(DOCK['name'],runner=run)
         self.assertEqual(result,'CPX400DP-direct-enx0c3796303396')
-        self.assertEqual(len(calls),3)
+        self.assertEqual(len(calls),4)
         self.assertEqual(calls[0][:4],['nmcli','-g','GENERAL.CONNECTION','device'])
-        self.assertIn('link-local',calls[1])
-        self.assertEqual(calls[2][:3],['nmcli','connection','up'])
+        self.assertEqual(calls[1][:3],['ip','-j','-4'])
+        self.assertIn('link-local',calls[2])
+        self.assertEqual(calls[3][:3],['nmcli','connection','up'])
         self.assertTrue(all(isinstance(arg,list) for arg in calls))
+
+    def test_setup_rejects_route_conflict_without_creating_profile(self):
+        calls=[]
+        def run(args,**kw):
+            calls.append(args)
+            if args[0] == 'ip':
+                return types.SimpleNamespace(stdout=json.dumps([
+                    {'dst':'169.254.0.0/16','dev':'enp3s0f1'},
+                    {'dst':'169.254.179.79','dev':'enp3s0f1'}]))
+            return types.SimpleNamespace(stdout='--')
+        with patch.object(net,'adapter_details',return_value=[DOCK]):
+            with self.assertRaisesRegex(ValueError,'Existing link-local'):
+                net.setup_ethernet_link_local(DOCK['name'],runner=run)
+        self.assertEqual(len(calls),2)
+        self.assertFalse(any('add' in args for args in calls))
+
+    def test_route_summary_no_overlap_warns_about_disconnected_interfaces(self):
+        runner=Mock(return_value=types.SimpleNamespace(stdout='[]'))
+        message=net.network_route_summary(runner=runner)
+        self.assertIn('currently',message)
+        self.assertIn('connected',message)
 
     def test_existing_nm_connection_refused(self):
         with patch.object(net,'adapter_details',return_value=[DOCK]):
