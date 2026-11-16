@@ -45,7 +45,7 @@ class NetworkSetupTests(unittest.TestCase):
         calls=[]
         def run(args,**kw):
             calls.append(args)
-            return types.SimpleNamespace(stdout='--\\n')
+            return types.SimpleNamespace(stdout='--')
         with patch.object(net,'adapter_details',return_value=[DOCK]):
             result=net.setup_ethernet_link_local(DOCK['name'],runner=run)
         self.assertEqual(result,'CPX400DP-direct-enx0c3796303396')
