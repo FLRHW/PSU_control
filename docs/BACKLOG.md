@@ -38,6 +38,19 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   continued updating during PSU read-only test and reported normal DSRemote
   operation after successful 10.csv run. Earlier rendering issues were not
   reproduced in this run.
+- [ ] **Declutter Profile Runner network controls:** replace the current
+  cramped inline PSU IP, Interface, Test connection and Prepare adapter
+  controls (IP field currently clips the address in the GUI) with one
+  **Network settings…** button. Open a separate, comfortably sized dialog
+  containing the complete, untruncated IP/interface fields, read-only
+  discovery and identity tests, connection status/errors, and opt-in
+  NetworkManager setup/advanced options. The main runner should display
+  only a compact connected/not connected summary if helpful, without
+  wasting persistent toolbar space. Preserve the verified connection
+  implementation, avoid any background discovery while idle, and keep
+  network tests/configuration disabled when the runner or Manual Control
+  owns the instrument. Add GUI layout/state regression tests before
+  hardware acceptance.
 - [ ] **Coexistence endurance:** confirm no intermittent rendering loss
   across longer operation and after persistent network setup/reboot.
   Correct instrument-specific routes MUST remain in place.
