@@ -5,9 +5,55 @@
 **Active development branch:** `dev`  
 **Stable release branch:** `main` (v13.5 merged from `dev`, PR #1, merge commit `7d5b3931404a9630c0343808e3ac7f695b289516`).  
 **Functional milestone:** **v13.6 read-only connection discovery hardware-validated** on 2026-11-16. Other v13.6 hardware operations and persistence remain unvalidated. v13.5 functional hardware acceptance completed and merged to `main`.  
-**Source baseline:** v13.6 network code through `a43fb655076a41b99c52d1290c50176c151c8ecd` (later README/handover documentation updates; check current `dev` HEAD).
+**Source baseline:** v13.6 retained-socket connection fix through `1c1b52454f29ebe418e5f912c0b2a936463cb7ef` (later docs-only commits; check current `dev` HEAD).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
+
+## Current increment — verified TCP session reuse (2026-11-16)
+
+- **User hardware finding:** `Test connection` identified CPX400DP
+  serial `446696` at `169.254.51.7` via Dell D6000
+  (`enx0c3796303396`), but the runner subsequently printed
+  `[PSU DISCOVERED]` followed immediately by
+  `[Errno 111] Connection refused`. No initial snapshot or
+  output commands occurred; generic GUI restoration warning was misleading.
+- **Implemented on `dev`:** `cpx400dp_discovery.py` retains the exact
+  successfully `*IDN?`-verified TCP socket and gives it to the runner or
+  ManualWorker. It closes all nonselected and ambiguous/failed candidate
+  sockets. The GUI's standalone **Test connection** still uses a
+  temporary socket and closes it immediately. Runner snapshot/restore
+  and `LOCAL`-last have not been weakened.
+- **Implemented on `dev`:** runner emits
+  `[CONNECTION NOT ESTABLISHED]` on pre-snapshot connection failure.
+  GUI reports **PSU connection failed — profile not started**, not
+  `restoration requires attention`, when no control session was
+  established. No profile commands are sent in this path.
+- **Offline CI PASS:** GitHub Actions
+  [#43920224405](https://github.com/FLRHW/PSU_control/actions/runs/43920224405)
+  on code commit `1c1b52454f29ebe418e5f912c0b2a936463cb7ef`:
+  **123 tests run, 121 passed, 2 skipped, zero errors/failures**.
+  Five new offline socket-lifecycle tests verify session reuse, read-only
+  test closure and ambiguous-device cleanup. Documentation-only commits
+  follow. **Retained connection has not yet been tested on the real PSU.**
+- **Rigol networking:** When D6000 `169.254.51.8/16` was added, Linux
+  routed the Rigol `169.254.179.79` to the wrong adapter. The user
+  temporarily installed a `/32` host route via `enp3s0f1`; both
+  current route lookups then matched the intended physical devices, and
+  the Rigol answered four pings. The user additionally saw DSRemote's
+  waveform rendering fail while the PSU GUI was open, then recover
+  after GUI closure. This is an **unresolved correlation**, not proof
+  of ongoing network scanning or software interference.
+- **Next hardware task:** sync `dev` and perform a controlled
+  connection/snapshot/profile test while preserving the corrected
+  temporary routes. Confirm final state and `LOCAL` on the physical
+  PSU and whether Rigol DSRemote remains operational. The user performs
+  hardware checks; the assistant changes and documents repository code.
+  No reboot or further `sudo nmcli` actions until the networking
+  regression is characterised.
+- **Deferred:** persistent NetworkManager configuration, overlapping
+  subnet protection, long-duration report/log scalability, and
+  regulation-mode indicator physical validation remain in
+  [BACKLOG.md](BACKLOG.md). Keep `main` on stable v13.5.
 
 ## Active v13.6 priority — PSU connection UX (2026-11-16)
 
@@ -154,19 +200,18 @@ IP; NetworkManager setup and reboot persistence remain untested.
 
 ## Next actions, in order
 
-1. **Completed:** user synced `dev` and physically verified **Test connection**
-   identifies CPX400DP via D6000 while Rigol remains on its dedicated link.
-2. **Pending:** verify persistent D6000 adapter addressing through NetworkManager
-   (the currently configured `169.254.51.8/16` was manually assigned).
-   Following a safe reboot, confirm that **Test connection** still succeeds.
-   If unconfigured, use the opt-in **Prepare adapter…** only for the correct
-   idle adapter, and report any failure.
-3. Assistant reconciles real hardware observations with the offline CI,
-   updates these docs and fixes remaining discovery bugs before asking for
-   any controlled PSU operation.
-4. Preserve single-socket ownership, snapshot/restore, 50 ms minimum gap and
-   `LOCAL` last. Keep `main` unchanged. Deferred long reporting and
-   CV/CC work remains in [BACKLOG.md](BACKLOG.md).
+1. Assistant: verify `dev` CI after connection fix (source commit
+   `1c1b524`, 123 tests, 2 skipped). Do not change `main`.
+2. User: sync `dev`; verify current PSU front-panel settings, then
+   perform read-only **Test connection** with Rigol DSRemote open.
+3. User: test a controlled low-energy PSU profile with a safe load or
+   outputs disabled, and confirm the initial snapshot, the runner's
+   final verification and the PSU's local/front-panel state.
+4. Record the actual hardware observations and investigate DSRemote
+   problems separately against the known-correct temporary routes.
+5. Return to NetworkManager persistence/overlapping routes after
+   transport and coexistence are validated. Other features in
+   [BACKLOG.md](BACKLOG.md).
 
 ## Start-of-next-chat prompt
 
