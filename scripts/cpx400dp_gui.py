@@ -49,7 +49,8 @@ from cpx400dp_gui_core import (
 )
 from cpx400dp_preview import profile_summary, generate_preview
 from cpx400dp_manual import ManualWorker
-from cpx400dp_network_setup import diagnose_connection, setup_ethernet_link_local
+from cpx400dp_network_setup import (diagnose_connection, setup_ethernet_link_local,
+                                     network_route_summary)
 
 HERE = Path(__file__).resolve().parent
 
@@ -255,6 +256,11 @@ class Window(QMainWindow):
             'Opt-in one-time NetworkManager link-local configuration.')
         self.prepare_adapter_btn.clicked.connect(self.prepare_adapter)
         dialog_actions.addWidget(self.prepare_adapter_btn)
+        self.inspect_routes_btn = QPushButton('Inspect routes')
+        self.inspect_routes_btn.setToolTip(
+            'Read-only check for conflicting routes across Ethernet adapters')
+        self.inspect_routes_btn.clicked.connect(self.inspect_network_routes)
+        dialog_actions.addWidget(self.inspect_routes_btn)
         dialog_actions.addStretch()
         dialog_layout.addLayout(dialog_actions)
 
@@ -798,6 +804,19 @@ class Window(QMainWindow):
         if self.profile and not self.running:
             self.clear_previous_run_display()
             self.preview_debounce.start()
+
+    def inspect_network_routes(self):
+        # A read-only, bounded local iproute2 query; no PSU socket or
+        # NetworkManager modifications. Keep hardware sessions undisturbed.
+        if (self.running or self.manual_worker is not None or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
+            return
+        try:
+            result = network_route_summary()
+        except (OSError, ValueError) as exc:
+            result = 'Unable to inspect IPv4 routes: ' + str(exc)
+        self.connection_message.setText(result)
 
     def open_network_settings(self):
         # Nonmodal: no extra instrument socket, no discovery on opening.
