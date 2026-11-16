@@ -9,6 +9,32 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Network dialog PyQt5 startup regression — fixed (2026-11-16)
+
+- **Hardware/UI failure reported:** After syncing `dev` to commit
+  `8c40862` the user launched `python3 scripts/cpx400dp_gui.py`;
+  the GUI aborted during `Window.__init__` at `QDialog(self)` with
+  `NameError: name 'QDialog' is not defined`. The PySide6 QtWidgets
+  branch included `QDialog`, but the fallback **PyQt5** branch on the
+  user's Kubuntu system omitted it. The previous offline GUI tests had
+  checked only structure, not both import branches.
+- **Fixed on `dev`:** add `QDialog` to the PyQt5 QtWidgets import
+  and add an AST regression test verifying `QDialog` is imported in
+  **both PySide6 and PyQt5**. This changes no connection logic.
+  Source/test commits: `44baae28` / `ea2c0041`.
+- **CI PASS:** [run #43926670863](https://github.com/FLRHW/PSU_control/actions/runs/43926670863),
+  **128 run, 126 passed, 2 skipped, 0 failures**.
+  **GUI relaunch on the real Kubuntu workstation is pending**; CI
+  does not verify visual Qt rendering.
+- **Rigol independent fault clarified:** The user confirms the DS1054Z's
+  own physical screen/acquisition behaves normally while DSRemote
+  reports `An error occurred while reading screen data from device.
+  File screen_thread.cpp line 783`, including with the PSU GUI closed.
+  This focuses further investigation on DSRemote's capture/transport/
+  rendering path rather than oscilloscope acquisition hardware, but
+  does not distinguish network transfer from DSRemote software handling.
+  Do not assume CPX400DP GUI interaction is the root cause.
+
 ## Network settings dialog + DSRemote status (2026-11-16)
 
 - **Implemented on dev, offline-tested:** Profile Runner now shows one
