@@ -89,24 +89,40 @@ def connect_on(host, interface, timeout=0.65):
         raise
 
 
-def probe(host, interface, timeout=0.65):
-    """Identify instrument on a short-lived read-only connection."""
+def identify_connection(host, interface, timeout=0.65):
+    """Open and return one *IDN?-verified socket, or None.
+
+    Caller owns the returned socket and MUST close it. Unknown devices and
+    incomplete replies are closed here. Only read-only identification is sent.
+    """
+    sock = None
     try:
-        with connect_on(host, interface, timeout) as s:
-            s.sendall(b'*IDN?\n')
-            reply = bytearray()
-            while len(reply) < 512 and b'\n' not in reply:
-                block = s.recv(512)
-                if not block:
-                    break
-                reply.extend(block)
-            identity = bytes(reply).split(b'\n')[0].decode('ascii', 'replace').strip()
-            # Match model explicitly: do not accept unrelated LXI instruments.
-            if re.search(r'\bCPX400DP\b', identity, re.IGNORECASE):
-                return identity
+        sock = connect_on(host, interface, timeout)
+        sock.sendall(b'*IDN?\\n')
+        reply = bytearray()
+        while len(reply) < 512 and b'\\n' not in reply:
+            block = sock.recv(512)
+            if not block:
+                break
+            reply.extend(block)
+        identity = bytes(reply).split(b'\\n')[0].decode('ascii', 'replace').strip()
+        if re.search(r'\\bCPX400DP\\b', identity, re.IGNORECASE):
+            return identity, sock
     except (OSError, ValueError):
         pass
+    if sock is not None:
+        sock.close()
     return None
+
+
+def probe(host, interface, timeout=0.65):
+    """Read-only short-lived identity probe for the GUI connection test."""
+    identified = identify_connection(host, interface, timeout)
+    if identified is None:
+        return None
+    identity, sock = identified
+    sock.close()
+    return identity
 
 
 def _dns_name(data, pos, depth=0):
@@ -200,11 +216,13 @@ def mdns_candidates(interface, timeout=0.5):
 
 
 def discover(last_host=None, preferred_interface=None, *, mdns=True,
-             timeout=0.65, all_matches=False):
-    """Return [(host, iface, identity)] candidates, prioritizing cached ones.
+             timeout=0.65, all_matches=False, retain_sockets=False):
+    """Find verified PSU candidates, optionally retaining their TCP connections.
 
-    Never scan all 65,536 link-local addresses automatically. Broadcast discovery,
-    past neighbour entries, and explicitly supplied IPs cover usual setups.
+    Normal discovery returns (host, interface, identity) and closes test sockets.
+    retain_sockets=True returns (host, interface, identity, open_socket).
+    The caller MUST close every retained socket, including on ambiguity.
+    Never scan the full 169.254/16 range.
     """
     links = interfaces()
     if preferred_interface and preferred_interface not in links:
@@ -235,12 +253,20 @@ def discover(last_host=None, preferred_interface=None, *, mdns=True,
                 continue
             if any((h, n) == (host, nic) for h, n, _ in found):
                 continue
-            ident = probe(host, nic, timeout)
-            if ident:
+            if retain_sockets:
+                matched = identify_connection(host, nic, timeout)
+                if matched is None:
+                    continue
+                ident, sock = matched
+                found.append((host, nic, ident, sock))
+            else:
+                ident = probe(host, nic, timeout)
+                if ident is None:
+                    continue
                 found.append((host, nic, ident))
-                if not all_matches:
-                    cache_write(host, nic)
-                    return True
+            if not all_matches:
+                cache_write(host, nic)
+                return True
         return False
     if scan_pairs():
         return found
@@ -257,34 +283,47 @@ def discover(last_host=None, preferred_interface=None, *, mdns=True,
 
 
 def connect_psu(last_host, preferred_interface=None, *, discover_enabled=True):
-    """Find and open the SINGLE socket used by the experiment runner."""
+    """Discover and return the SAME socket that passed read-only *IDN?.
+
+    The PSU may briefly refuse a second TCP connection after a probe closes;
+    never disconnect/reconnect between identification and the initial snapshot.
+    No V/I/OP commands are transmitted until the runner verifies the snapshot.
+    """
     if not discover_enabled:
         return connect_on(last_host, preferred_interface, timeout=3), last_host, preferred_interface
-    # Confirm identity before ever issuing setpoints. Probe sockets are closed.
     devices = discover(last_host=last_host, preferred_interface=preferred_interface,
-                       all_matches=True)
+                       all_matches=True, retain_sockets=True)
     if not devices:
         raise ConnectionError(
             'CPX400DP not found on active interfaces (attempted cached address, '
             'CSV address, ARP neighbours and mDNS). Check instrument power/cabling, '
             'or use Test connection to diagnose an unconfigured Ethernet adapter.')
-    if len(devices) > 1:
-        # Explicit preferred address wins, otherwise refuse ambiguous selection.
-        chosen = [d for d in devices if d[0] == last_host and
-                  (not preferred_interface or d[1] == preferred_interface)]
-        if len(chosen) != 1:
-            raise ConnectionError('Multiple CPX400DP instruments found: ' +
-                                  '; '.join(f'{h} on {nic}' for h, nic, _ in devices) +
-                                  '. Specify --psu-ip and --psu-interface.')
-        devices = chosen
-    host, nic, identity = devices[0]
-    print(f'[PSU DISCOVERED] {host}:9221 via {nic} — {identity}', flush=True)
     try:
-        s = connect_on(host, nic, timeout=3)
-    except OSError as exc:
-        raise ConnectionError(f'Discovered PSU at {host} on {nic}, but connection failed: {exc}') from exc
-    cache_write(host, nic)
-    return s, host, nic
+        if len(devices) > 1:
+            chosen = [d for d in devices if d[0] == last_host and
+                      (not preferred_interface or d[1] == preferred_interface)]
+            if len(chosen) != 1:
+                raise ConnectionError('Multiple CPX400DP instruments found: ' +
+                                      '; '.join(f'{d[0]} on {d[1]}' for d in devices) +
+                                      '. Specify --psu-ip and --psu-interface.')
+            selected = chosen[0]
+        else:
+            selected = devices[0]
+        host, nic, identity = selected[:3]
+        # Retained socket is produced by the real discovery implementation;
+        # legacy injected discovery test doubles may return three fields.
+        sock = selected[3] if len(selected) == 4 else connect_on(host, nic, timeout=3)
+        for device in devices:
+            if len(device) == 4 and device[3] is not sock:
+                device[3].close()
+        print(f'[PSU DISCOVERED] {host}:9221 via {nic} — {identity}', flush=True)
+        cache_write(host, nic)
+        return sock, host, nic
+    except BaseException:
+        for device in devices:
+            if len(device) == 4:
+                device[3].close()
+        raise
 
 
 if __name__ == '__main__':
