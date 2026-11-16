@@ -785,6 +785,7 @@ class Window(QMainWindow):
         self.connection_message.setText('Searching Ethernet adapters (read-only; no output commands)…')
         self.connection_probe_job = ConnectionProbeJob(host, iface, self)
         self.connection_probe_job.completed.connect(self.connection_test_finished)
+        self.connection_probe_job.finished.connect(self.connection_probe_done)
         self.connection_probe_job.start()
 
     def connection_test_finished(self, result):
@@ -806,10 +807,11 @@ class Window(QMainWindow):
         elif result.get('status') == 'multiple':
             self.connection_message.setText(result['message'] + ' ' +
                                             '; '.join(f'{h} via {nic}' for h, nic, _ in result['matches']))
-        # Result signals are delivered on the GUI thread; release worker after
-        # the thread exits, not while its run() method is still unwinding.
-        if self.connection_probe_job:
-            self.connection_probe_job.finished.connect(self.connection_probe_job.deleteLater)
+    def connection_probe_done(self):
+        job = self.connection_probe_job
+        self.connection_probe_job = None
+        if job is not None:
+            job.deleteLater()
 
     def prepare_adapter(self):
         if (self.running or self.manual_worker is not None or self.pause_manual_active or
@@ -845,6 +847,7 @@ class Window(QMainWindow):
         self.connection_message.setText(f'Preparing {selected} with NetworkManager…')
         self.adapter_setup_job = AdapterSetupJob(selected, self)
         self.adapter_setup_job.completed.connect(self.adapter_setup_finished)
+        self.adapter_setup_job.finished.connect(self.adapter_setup_done)
         self.adapter_setup_job.start()
 
     def adapter_setup_finished(self, success, detail):
@@ -868,8 +871,11 @@ class Window(QMainWindow):
         else:
             self.connection_message.setText('Adapter setup failed or was declined: ' + detail)
             self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
-        if self.adapter_setup_job:
-            self.adapter_setup_job.finished.connect(self.adapter_setup_job.deleteLater)
+    def adapter_setup_done(self):
+        job = self.adapter_setup_job
+        self.adapter_setup_job = None
+        if job is not None:
+            job.deleteLater()
 
     def choose_output_directory(self):
         if self.running or (self.preview_job and self.preview_job.isRunning()):
