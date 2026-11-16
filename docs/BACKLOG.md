@@ -81,6 +81,13 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 - [ ] **Usability polish:** consider showing `Automatic discovery` explicitly
   when the PSU IP field is blank; the current auto-population on successful
   discovery is working and hardware-verified.
+- [ ] **Rigol DSRemote waveform-read fault after successful connect:**
+  after restoring the correct /32 host route, DSRemote established a
+  session and displayed waveforms briefly, then failed at
+  `screen_thread.cpp line 783`. Distinguish this from the already
+  fixed initial socket connection/routing failure. Scope front panel
+  remains normal; PSU GUI not required for reproduction. Independently
+  compare single-shot acquisition via the existing Rigol tool.
 - [ ] **Rigol DSRemote independent display fault:** user observed DSRemote
   display corruption/non-updating waveform after adjusting horizontal
   timebase, and later **reproduced the problem with the PSU GUI fully
