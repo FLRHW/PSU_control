@@ -8,6 +8,32 @@
 
 > **Critical distinction:** This is lab automation software, **not a hardware safety interlock**. On communications failure the PSU may retain its last commanded settings. An instrument readback is not proof of terminal voltage, current, or safety.
 
+## Rigol DSRemote connection recovered; waveform stream still fails (2026-11-16)
+
+After the user re-added the Rigol-specific route, `ip route get`
+selected `enp3s0f1` for `169.254.179.79`, while the PSU remained
+routed via the D6000 `enx0c3796303396`. Rigol replied to all four
+pings. The user then **successfully connected DSRemote** and observed
+waveform data for several seconds, but it subsequently displayed
+`An error occurred while reading screen data from device. File
+screen_thread.cpp line 783`. The physical scope itself operates
+normally; the user previously reproduced this error with the PSU GUI
+closed. Therefore the **socket connection problem is resolved by
+routing**, but the **independent DSRemote waveform-read failure remains
+unresolved**. Neither a network packet-level diagnosis nor inspection
+of DSRemote's exact source line has been completed. An older DSRemote
+GitLab issue #5 documents the same text for a USB connection, which
+does not establish the cause over LAN. Avoid attributing it to PSU GUI,
+Qt rendering, cabling or firmware without evidence.
+
+Recommended non-invasive follow-up: check `ip route get
+169.254.179.79` immediately after the stream error, verify physical
+oscilloscope acquisition continues, and try a separate single
+screen/waveform capture through the already developed Rigol tool,
+with DSRemote disconnected, to distinguish transport from the
+DSRemote client. No PSU code or network routes were altered by
+this investigation.
+
 ## Confirmed Linux route-selection failure (2026-11-16)
 
 User provided real workstation command outputs with both instruments powered on:
