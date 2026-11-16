@@ -98,15 +98,15 @@ def identify_connection(host, interface, timeout=0.65):
     sock = None
     try:
         sock = connect_on(host, interface, timeout)
-        sock.sendall(b'*IDN?\\n')
+        sock.sendall(b'*IDN?\n')
         reply = bytearray()
-        while len(reply) < 512 and b'\\n' not in reply:
+        while len(reply) < 512 and b'\n' not in reply:
             block = sock.recv(512)
             if not block:
                 break
             reply.extend(block)
-        identity = bytes(reply).split(b'\\n')[0].decode('ascii', 'replace').strip()
-        if re.search(r'\\bCPX400DP\\b', identity, re.IGNORECASE):
+        identity = bytes(reply).split(b'\n')[0].decode('ascii', 'replace').strip()
+        if re.search(r'\bCPX400DP\b', identity, re.IGNORECASE):
             return identity, sock
     except (OSError, ValueError):
         pass
