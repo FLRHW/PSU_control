@@ -7,6 +7,7 @@ NetworkManager/Polkit authorization. No sudo, shell, or elevated daemon.
 import ipaddress
 import json
 import re
+from pathlib import Path
 import subprocess
 
 PROFILE_PREFIX = 'CPX400DP-direct-'
@@ -29,15 +30,20 @@ def adapter_details():
             continue
         ipv4 = [a.get('local') for a in item.get('addr_info', [])
                 if a.get('family') == 'inet' and a.get('local')]
+        sysnet = Path('/sys/class/net') / name
+        wireless = (sysnet / 'wireless').exists()
+        physical = (sysnet / 'device').exists()
         result.append({'name': name, 'ipv4': ipv4,
                        'carrier': 'LOWER_UP' in item.get('flags', []),
-                       'mac': item.get('address', '')})
+                       'mac': item.get('address', ''),
+                       'kind': 'wifi' if wireless else 'ethernet' if physical else 'virtual'})
     return result
 
 
 def is_setup_candidate(item):
     """A connected Ethernet adapter with no IPv4 address."""
-    return bool(item.get('carrier') and not item.get('ipv4') and
+    return bool(item.get('kind') == 'ethernet' and
+                item.get('carrier') and not item.get('ipv4') and
                 re.fullmatch(r'[a-zA-Z0-9_.-]{1,15}', item.get('name', '')))
 
 
