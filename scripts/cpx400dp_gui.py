@@ -555,6 +555,8 @@ class Window(QMainWindow):
         interface = None if not interface or interface == 'Auto' else interface
         self.manual_status.setText('Connecting; verifying initial programmed states…')
         self.manual_connect_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
         self.manual_output_states = {1: None, 2: None}
         self.manual_regulation_update({1: None, 2: None})
         self.start_btn.setEnabled(False)
@@ -671,6 +673,8 @@ class Window(QMainWindow):
         self.manual_status.setText(message)
         self.manual_widgets_enabled(False)
         self.manual_connect_btn.setEnabled(True)
+        self.test_connection_btn.setEnabled(True)
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
         self.choose_btn.setEnabled(True)
         self.override_check.setEnabled(True)
         self.set_override_enabled(self.override_check.isChecked())
@@ -1226,6 +1230,8 @@ class Window(QMainWindow):
         self.process.start(sys.executable, arguments)
         self.running = True
         self.manual_connect_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
         self.pause_manual_active = False
         self.stopping = False
         self.paused = False
@@ -1428,6 +1434,8 @@ class Window(QMainWindow):
                 self.manual_widgets_enabled(False)
                 self.cleanup_pause_control()
                 self.manual_connect_btn.setEnabled(True)
+                self.test_connection_btn.setEnabled(True)
+                self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
                 self.stopping = False
                 self.start_btn.setEnabled(bool(self.profile))
                 self.reset_btn.setEnabled(True)
@@ -1456,6 +1464,8 @@ class Window(QMainWindow):
         self.manual_disconnect_btn.setText('Disconnect (LOCAL)')
         self.manual_connect_btn.setText('Connect to PSU')
         self.manual_connect_btn.setEnabled(True)
+        self.test_connection_btn.setEnabled(True)
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
         self.cleanup_pause_control()
         self.stopping = False
         self.stop_btn.setEnabled(False)
