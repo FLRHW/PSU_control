@@ -4,7 +4,7 @@
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
 **Stable release branch:** `main` (v13.5 merged from `dev`, PR #1, merge commit `7d5b3931404a9630c0343808e3ac7f695b289516`).  
-**Functional milestone:** **v13.6 development started**. v13.5 functional hardware acceptance completed and merged to `main`; v13.6 code is offline-only and not hardware validated.  
+**Functional milestone:** **v13.6 read-only connection discovery hardware-validated** on 2026-11-16. Other v13.6 hardware operations and persistence remain unvalidated. v13.5 functional hardware acceptance completed and merged to `main`.  
 **Source baseline:** v13.6 network code through `a43fb655076a41b99c52d1290c50176c151c8ecd` (later README/handover documentation updates; check current `dev` HEAD).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
@@ -15,8 +15,8 @@
 workstation; CPX400DP via Dell D6000 `enx0c3796303396`.
 Two independent `169.254.0.0/16` networks previously caused incorrect
 source/route selection. The dock interface was UP without IPv4; the user
-added temporary `169.254.51.8/16`. No user confirmation yet that a GUI
-connection test, NetworkManager setup, or reboot persistence succeeded.
+added temporary `169.254.51.8/16`. Read-only GUI connection discovery has now succeeded with this temporary
+IP; NetworkManager setup and reboot persistence remain untested.
 
 - **Implemented on dev:** `scripts/cpx400dp_network_setup.py` physical
   Ethernet inspection (including no-IPv4 dock links), read-only diagnostic
@@ -39,16 +39,20 @@ connection test, NetworkManager setup, or reboot persistence succeeded.
   tests remain green; new tests cover the unconfigured dock, NetworkManager
   safety checks, source binding, duplicate identity and GUI controls.
   Documentation-only commits follow; no source/test changes.
-- **Hardware and GUI visual testing: NOT YET PERFORMED on this increment.**
-  NetworkManager creation and adapter persistence remain unverified against
-  real dock; never claim a working PSU connection until user confirms `*IDN?`.
-- **Next action for user:** sync `dev`; open GUI; select PSU IP
-  `169.254.51.7` only if still current, Interface `Auto`; click
-  **Test connection**. If it identifies the PSU, report host/interface;
-  if it reports an unconfigured dock adapter, check that **Prepare
-  adapter…** proposes `enx0c3796303396`, then authorise only if
-  appropriate. Do not start energised profiles or change PSU network
-  settings yet. Capture the GUI status and any NetworkManager error.
+- **HARDWARE IDENTIFICATION PASS (2026-11-16):** User launched the GUI,
+  selected **Test connection**, and confirmed a successful live `*IDN?`
+  response: `THURLBY THANDAR, CPX400DP, 446696, 2.00-4.06` at
+  `169.254.51.7:9221` via `enx0c3796303396` (D6000). GUI states
+  **Test socket closed; profile not started**. No profile/manual-control
+  operation or PSU state change was performed by the test. Terminal also
+  showed a harmless Qt Wayland window activation warning.
+  **Still unvalidated:** one-time NetworkManager preparation, IP persistence
+  across reboot, and full v13.6 runner/Manual Control hardware behaviour.
+- **Next action for user:** check whether D6000 adapter's temporary
+  `169.254.51.8/16` address is now managed persistently by NetworkManager;
+  test or configure one-time persistent link-local setup when safe and verify
+  read-only discovery after a reboot. Do not modify the PSU's network settings
+  or start an energised run solely to diagnose connectivity.
 - **Backlog retained:** [BACKLOG.md](BACKLOG.md) tracks truly bounded-memory
   reporting, longer-duration logging/zoom/recovery, hardware CV/CC
   last-event validation, optional VXI-11 discovery and network error recovery.
@@ -150,11 +154,13 @@ connection test, NetworkManager setup, or reboot persistence succeeded.
 
 ## Next actions, in order
 
-1. User syncs `dev` and tests the new **Test connection** button with the
-   CPX400DP through Dell D6000 while Rigol stays on its dedicated port.
-2. If the dock has no IPv4 address, show the opt-in **Prepare adapter…**
-   dialogue and confirm only for the correct idle physical interface.
-   Retest after link-local assignment; report identity/interface and errors.
+1. **Completed:** user synced `dev` and physically verified **Test connection**
+   identifies CPX400DP via D6000 while Rigol remains on its dedicated link.
+2. **Pending:** verify persistent D6000 adapter addressing through NetworkManager
+   (the currently configured `169.254.51.8/16` was manually assigned).
+   Following a safe reboot, confirm that **Test connection** still succeeds.
+   If unconfigured, use the opt-in **Prepare adapter…** only for the correct
+   idle adapter, and report any failure.
 3. Assistant reconciles real hardware observations with the offline CI,
    updates these docs and fixes remaining discovery bugs before asking for
    any controlled PSU operation.
