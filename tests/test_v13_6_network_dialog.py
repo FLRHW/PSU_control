@@ -27,9 +27,20 @@ class NetworkDialogTests(unittest.TestCase):
         init=ast.get_source_segment(SOURCE,method('__init__'))
         toolbar=init.split("self.network_dialog = QDialog(self)",1)[0]
         self.assertIn("QPushButton('Network settings…')",toolbar)
-        self.assertIn("selectors.addLayout(network_row)",toolbar)
+        self.assertNotIn("selectors.addLayout(network_row)",init)
+        self.assertIn("preview_buttons.addWidget(self.network_settings_btn)",init)
+        self.assertNotIn("self.info_label = QLabel(",init)
         self.assertNotIn("connection_row.addWidget(self.psu_ip)",toolbar)
         self.assertNotIn("selectors.addWidget(self.connection_message)",init)
+
+    def test_hold_preview_banner_is_absent(self):
+        init=ast.get_source_segment(SOURCE,method('__init__'))
+        ready=ast.get_source_segment(SOURCE,method('preview_ready'))
+        self.assertNotIn("CH{ch} initially HOLD",ready)
+        self.assertNotIn("CH{ch} HOLD: initial output state retained",ready)
+        self.assertNotIn("self.info_label.setText",ready)
+        self.assertNotIn("self.info_label = QLabel",init)
+        self.assertIn('self.duration_box.setText',ready)
 
     def test_dialog_has_unclipped_fields_and_diagnostics(self):
         init=ast.get_source_segment(SOURCE,method('__init__'))
