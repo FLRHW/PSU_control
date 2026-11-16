@@ -13,6 +13,16 @@ def method(name):
 
 
 class NetworkDialogTests(unittest.TestCase):
+    def test_qdialog_imported_in_both_qt_backends(self):
+        # GitHub CI may have no Qt runtime; check both import branches.
+        backends=('PySide6.QtWidgets','PyQt5.QtWidgets')
+        for backend in backends:
+            imports=[node for node in ast.walk(TREE)
+                     if isinstance(node,ast.ImportFrom) and node.module==backend]
+            self.assertEqual(len(imports),1,backend)
+            symbols={alias.name for alias in imports[0].names}
+            self.assertIn('QDialog',symbols,backend)
+
     def test_toolbar_has_only_network_settings_button(self):
         init=ast.get_source_segment(SOURCE,method('__init__'))
         toolbar=init.split("self.network_dialog = QDialog(self)",1)[0]
