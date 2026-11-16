@@ -23,6 +23,41 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## v13.6 hardware acceptance of retained socket — PASS (2026-11-16)
+
+The user physically tested after synchronising the new `dev` code. PSU Test connection
+identified THURLBY THANDAR CPX400DP serial 446696, firmware 2.00-4.06,
+at 169.254.51.7 over Dell D6000 interface `enx0c3796303396`, with
+Rigol DSRemote still updating. Standalone Manual Control displayed both
+channels' programmed and measured values, then disconnected successfully.
+The user subsequently executed `profiles/10.csv` with the Rigol connected.
+
+**User-supplied actual runner evidence:** `20261116_174633_754482`:
+20 s main profile, 2 s final ramp; 50 ms nominal scheduler interval;
+250 ms readbacks; 401 time slots, 441 setpoint groups; maximum
+scheduling lateness 0.905 ms. Initial dual-read snapshot verified:
+CH1 5.000 V/1.500 A/ON; CH2 3.000 V/4.000 A/ON. 178 successful
+readbacks and no failures; no unexplained high readings, one expected
+settling reading, no output-health warnings. Both channel final
+**programmed** states VERIFIED; sampled physical outputs MATCHED
+(not a continuous terminal-voltage guarantee); `LOCAL: SENT`;
+`COMPLETED — cleanup verified`, process exit code 0. HTML report
+generated. The user reported that DSRemote appears to be working
+normally afterward.
+
+**Meaning:** Retained *IDN?-verified socket and short two-channel
+profile/restore are now **hardware validated** with correct temporary
+Rigol/PSU host routing. Do not generalise to indefinite uptime,
+persistent network settings, automatic adapter migration, multi-day
+profiles or untested CV/CC mode transitions. The GUI being open no
+longer visibly disrupts DSRemote in this observed session, but the
+earlier rendering failures warrant regression attention if repeated.
+Evidence paths on user's PC:
+`reports/10_console_20261116_174633_754482.log`,
+`reports/10_measurements_20261116_174633_754482.csv` and
+`reports/10_report_20261116_174633_754482.html`. Only Run output was
+provided in chat; the full measurement/report files were not inspected.
+
 ## v13.6 connection ownership correction — 2026-11-16
 
 **New user hardware finding:** read-only **Test connection** succeeded on
