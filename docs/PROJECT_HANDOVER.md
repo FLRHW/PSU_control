@@ -23,6 +23,34 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## v13.6 network settings dialog + independent Rigol incident (2026-11-16)
+
+**Code (offline-tested):** Profile Runner now uses one **Network
+settings…** button in place of the cramped inline IP, interface, Test
+connection and Prepare adapter widgets. A 680-px-minimum-width nonmodal
+dialog holds the same underlying widgets, a read-only *IDN? connection
+test, status/diagnostics and opt-in NetworkManager setup. The full IP
+and interface can be read without clipping; opening the dialog itself
+does not send network traffic or trigger diagnostics. Instrument
+ownership and safety guards remain shared with the runner and standalone
+Manual Control. Source: `scripts/cpx400dp_gui.py`, with offline
+structural tests `tests/test_v13_6_network_dialog.py`. GitHub Actions
+run [#43925537774](https://github.com/FLRHW/PSU_control/actions/runs/43925537774)
+passed. **Real GUI visual/layout acceptance is still pending**; no
+new physical network configuration was attempted.
+
+**Rigol observation, corrected:** The user initially noticed DSRemote
+waveform rendering/update corruption during horizontal timebase changes
+while the PSU GUI was open. Closing the PSU GUI and reconnecting DSRemote
+temporarily resolved it, but the user then reproduced the same display
+problem **with the PSU GUI fully closed**. The PSU GUI is therefore not
+a necessary condition for the Rigol failure, and the root cause remains
+unknown. Do not represent this as proven CPX400DP interference or modify
+the workstation's networking to fix a possible DSRemote software fault
+without supporting evidence. A diagnostic check should compare Rigol
+front-panel acquisition, DSRemote connection state and network reachability
+while changing timebase, independently of PSU operations.
+
 ## v13.6 hardware acceptance of retained socket — PASS (2026-11-16)
 
 The user physically tested after synchronising the new `dev` code. PSU Test connection
