@@ -1,5 +1,40 @@
 # CPX400DP — current session state
 
+## 2026-11-16 — DSRemote deferred; PSU v13.6 read-only route UX
+
+**User direction:** DSRemote 0.46 connected with PSU GUI open, displayed
+a running scope waveform, entered Wave Inspector, returned to main
+screen, and later displayed `screen_thread.cpp line 783` and stopped
+updating. Since the same error occurred with PSU GUI closed, and
+separate Rigol RAW CH2/CH4 small-depth capture passed (6,000/6,000
+each, 1,200-point blocks, decimation 1), **do not block PSU GUI
+development on DSRemote debugging**. Record as deferred coexistence
+backlog, not a proven PSU fault. The overlapping /16 routing issue
+remains separate and must still be fixed persistently with
+user-authorized OS changes.
+
+**Implemented on PSU `dev`:** clarified empty PSU IPv4 field
+behaviour (CSV address first, then discovery) in Network settings.
+**Inspect routes** now supplements the subnet-overlap warning
+with the effective Linux `ip -j -4 route get <PSU IPv4>` decision
+(source address and interface) when an IP is entered and warns if
+the selected adapter disagrees. This command is **read-only**;
+it creates no socket, changes no IP, and applies no routes.
+Added mocked regression tests of exact command, mismatch and
+invalid address. **Source-implemented/offline-tested only until
+latest GitHub CI run completes; not hardware/UI validated.**
+No changes to PSU command sequencing, profile run, socket ownership,
+pause/manual/resume, restoration or LOCAL.
+
+**Next:** Run CI, launch updated GUI for a visual **Inspect routes**
+check with the already-identified PSU `169.254.51.7` /
+`enx0c3796303396`. User should not run Prepare adapter or make
+persistent OS route changes without a reviewed design. Continue
+persistent NetworkManager configuration planning; do not reopen
+DSRemote investigation unless it blocks simultaneous lab use.
+
+
+
 **Updated:** 2026-11-16  
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
