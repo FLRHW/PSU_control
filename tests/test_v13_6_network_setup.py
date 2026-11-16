@@ -131,6 +131,31 @@ class NetworkSetupTests(unittest.TestCase):
         self.assertEqual(net.overlapping_ipv4_routes(runner=runner),[])
         self.assertIn('No overlapping',net.network_route_summary(runner=runner))
 
+    def test_effective_psu_route_diagnostic_is_read_only(self):
+        calls = []
+        def runner(args, **kw):
+            calls.append(args)
+            return types.SimpleNamespace(stdout=json.dumps([
+                {'dst': '169.254.51.7', 'dev': 'enx0c3796303396',
+                 'prefsrc': '169.254.51.8'}]))
+        msg = net.instrument_route_summary(
+            '169.254.51.7', 'enx0c3796303396', runner=runner)
+        self.assertIn('enx0c3796303396', msg)
+        self.assertIn('169.254.51.8', msg)
+        self.assertNotIn('WARNING', msg)
+        self.assertEqual(calls, [[
+            'ip', '-j', '-4', 'route', 'get', '169.254.51.7']])
+        mismatch = net.instrument_route_summary(
+            '169.254.51.7', 'enp3s0f1', runner=runner)
+        self.assertIn('WARNING', mismatch)
+        self.assertIn('enp3s0f1', mismatch)
+
+    def test_effective_route_rejects_invalid_address_without_command(self):
+        runner = Mock()
+        msg = net.instrument_route_summary('not-ip', runner=runner)
+        self.assertIn('valid PSU IPv4', msg)
+        runner.assert_not_called()
+
     def test_gui_profile_connection_and_csv_directory_controls(self):
         source=(Path(__file__).resolve().parents[1]/'scripts'/'cpx400dp_gui.py').read_text()
         self.assertIn("QPushButton('Test connection')",source)
