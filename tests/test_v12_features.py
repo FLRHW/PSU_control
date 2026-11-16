@@ -92,11 +92,13 @@ class DiscoveryTests(unittest.TestCase):
 
     def test_host_interface_binder(self):
         fake=MagicMock()
-        with patch.object(discovery.socket,'socket',return_value=fake) as constructor:
+        with patch.object(discovery.socket,'socket',return_value=fake) as constructor, \
+             patch.object(discovery,'interfaces',return_value={'enx0c3796303396':['169.254.51.8']}):
             result=discovery.connect_on('169.254.51.7','enx0c3796303396')
         self.assertIs(result,fake)
         self.assertEqual(fake.connect.call_args.args[0],('169.254.51.7',9221))
         self.assertIn(b'enx0c3796303396',fake.setsockopt.call_args_list[0].args[2])
+        fake.bind.assert_called_once_with(('169.254.51.8',0))
 
 class ReportTests(unittest.TestCase):
     def test_report_has_offline_zoom_and_cursors(self):
