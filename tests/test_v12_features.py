@@ -76,6 +76,7 @@ class DiscoveryTests(unittest.TestCase):
             def __exit__(self,*args):return False
             def sendall(self,raw):self.query=raw
             def recv(self,n):return b'OTHER,VNA,1,0\n'
+            def close(self):self.closed=True
         with patch.object(discovery,'connect_on',return_value=FakeSocket()):
             self.assertIsNone(discovery.probe('169.254.51.7','lan'))
 
