@@ -84,6 +84,29 @@ class NetworkSetupTests(unittest.TestCase):
             result=net.diagnose_connection()
         self.assertEqual(result['status'],'multiple')
 
+    def test_route_audit_finds_overlapping_interface_networks(self):
+        routes=[{'dst':'169.254.0.0/16','dev':'enp3s0f1'},
+                {'dst':'169.254.0.0/16','dev':'enx0c3796303396'},
+                {'dst':'169.254.179.79','dev':'enp3s0f1'},
+                {'dst':'192.168.0.0/24','dev':'wlp4s0'}]
+        runner=Mock(return_value=types.SimpleNamespace(stdout=json.dumps(routes)))
+        overlaps=net.overlapping_ipv4_routes(runner=runner)
+        self.assertEqual(len(overlaps),1)
+        self.assertIn('169.254.0.0/16',str(overlaps[0]))
+        message=net.network_route_summary(runner=runner)
+        self.assertIn('Overlapping',message)
+        self.assertIn('enp3s0f1',message)
+        runner.assert_called()
+        self.assertEqual(runner.call_args.args[0][:3],['ip','-j','-4'])
+
+    def test_distinct_networks_and_host_routes_are_not_a_conflict(self):
+        routes=[{'dst':'192.168.50.0/24','dev':'dock'},
+                {'dst':'169.254.0.0/16','dev':'rigol'},
+                {'dst':'169.254.51.7','dev':'dock'}]
+        runner=Mock(return_value=types.SimpleNamespace(stdout=json.dumps(routes)))
+        self.assertEqual(net.overlapping_ipv4_routes(runner=runner),[])
+        self.assertIn('No overlapping',net.network_route_summary(runner=runner))
+
     def test_gui_profile_connection_and_csv_directory_controls(self):
         source=(Path(__file__).resolve().parents[1]/'scripts'/'cpx400dp_gui.py').read_text()
         self.assertIn("QPushButton('Test connection')",source)
