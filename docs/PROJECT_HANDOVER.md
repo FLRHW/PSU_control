@@ -8,6 +8,35 @@
 
 > **Critical distinction:** This is lab automation software, **not a hardware safety interlock**. On communications failure the PSU may retain its last commanded settings. An instrument readback is not proof of terminal voltage, current, or safety.
 
+## v13.6 UI and route-audit increment — 2026-11-16
+
+**User-directed UI changes on `dev`:**
+- Removed the preview toolbar's `CHx initially HOLD`, `CHx HOLD:
+  initial output state retained`, and `CHx OFF throughout` messages
+  entirely, along with the dedicated info label. This is deliberate,
+  per explicit user preference. The underlying per-channel output
+  enable/HOLD semantics, CSV validation, snapshot before output changes,
+  restoration and LOCAL-last logic are **unchanged**. Preview errors
+  remain visible through the existing GUI status and console.
+- Moved **Network settings…** to the right of the read-only Profile
+  duration box on the top-right toolbar row. The left selector column
+  no longer allocates a separate network-settings row.
+- Added **Inspect routes** inside the existing Network settings dialog.
+  It uses read-only `ip -j -4 route show table main` to flag overlapping
+  IPv4 network prefixes on different interfaces, ignores explicit
+  /32 host routes as conflict candidates, and reports results without
+  altering OS routes, addresses, the PSU or NetworkManager.
+- Tests updated in `tests/test_v13_6_network_dialog.py` and
+  `tests/test_v13_6_network_setup.py` for banner removal, button
+  location, nonautomatic/read-only route checks and overlapping-subnet
+  detection. The current user's permanent OS configuration remains
+  **untouched**.
+- **Next gate:** offline CI and visual GUI confirmation, then use
+  the read-only route inspection on the actual two-instrument setup.
+  Only afterward design a user-approved persistent NetworkManager
+  migration preserving the separate Rigol and PSU links. No automated
+  OS network changes have been introduced by this increment.
+
 ## v13.6 work started — long-duration scheduling (2026-11-15)
 
 The first development increment replaces the former eagerly materialised `schedule_for()` list with an ordered generator that combines 50 ms regular ticks, CSV keyframes and the final endpoint. `validate_schedule()` now examines regular-grid boundaries and neighbouring irregular keyframes in memory bounded by the CSV keyframe count, rather than building and inspecting tens of millions of slots. The runner records completed tick count incrementally instead of evaluating `len(schedule)`. New offline tests are in `tests/test_v13_6_long_schedule.py`, including a synthetic 1,000-hour/50 ms schedule and rejection of keyframes violating the 50 ms minimum.
