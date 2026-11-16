@@ -126,3 +126,49 @@ def diagnose_connection(host=None, interface=None):
             'message': 'No CPX400DP responded to read-only identification. Check PSU power, '
                        'cables and whether Auto-IP startup has finished (approximately 30 s).',
             'matches': [], 'setup': []}
+
+
+def overlapping_ipv4_routes(*, runner=subprocess.run):
+    """Read-only route audit for separate physical instrument networks.
+
+    Returns distinct (subnet, interface A, interface B) collisions.
+    Host-specific /32 exceptions are not collisions. No routing or
+    NetworkManager settings are modified.
+    """
+    proc = runner(['ip', '-j', '-4', 'route', 'show', 'table', 'main'],
+                  capture_output=True, text=True, check=True, timeout=4)
+    routes = []
+    for entry in json.loads(proc.stdout):
+        destination = entry.get('dst')
+        device = entry.get('dev')
+        if not destination or destination == 'default' or not device:
+            continue
+        try:
+            network = ipaddress.ip_network(destination, strict=False)
+        except ValueError:
+            continue
+        # /32 routes are deliberate instrument-specific exceptions.
+        if network.prefixlen == 32:
+            continue
+        routes.append((network, device))
+    collisions = set()
+    for index, (first, nic1) in enumerate(routes):
+        for second, nic2 in routes[index + 1:]:
+            if nic1 != nic2 and first.overlaps(second):
+                collisions.add((str(first), nic1, str(second), nic2))
+    return sorted(collisions)
+
+
+def network_route_summary(*, runner=subprocess.run):
+    """Human-readable, diagnostic-only warning for overlapping IPv4 routes."""
+    collisions = overlapping_ipv4_routes(runner=runner)
+    if not collisions:
+        return 'No overlapping IPv4 network routes found.'
+    details = '; '.join(
+        f'{left} on {nic1} overlaps {right} on {nic2}'
+        for left, nic1, right, nic2 in collisions)
+    return ('Overlapping network routes detected: ' + details +
+            '. Linux may send traffic for an instrument through the wrong '
+            'Ethernet port. Existing host-specific routes can make the '
+            'instruments usable, but automatic configuration should not '
+            'change these routes without an explicit review.')
