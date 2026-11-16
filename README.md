@@ -48,6 +48,40 @@ PYTHONPATH=scripts python3 -m unittest discover -s tests -p 'test_*.py'
 
 Manual voltage/current spinboxes and displayed live V/A values show two decimal places. Internally stored precision, SCPI payloads, and logged measurements are not rounded by this display-only change.
 
+## v13.6 networking — first-use connection test
+
+In Profile Runner, use **Test connection** before running a profile. The test
+identifies the CPX400DP with read-only `*IDN?`, displays the verified host
+and network interface, and closes its temporary TCP socket; **no output
+commands, experiment start or PSU network changes occur**.
+
+If the test reports an unconfigured physical Ethernet adapter (for example,
+a Dell D6000 dock), **Prepare adapter…** offers an **optional, confirmed**
+one-time automatic link-local IPv4 profile using NetworkManager (`nmcli`).
+NetworkManager/Polkit may require desktop authorisation. Setup is refused when
+the selected interface already has an IPv4 address or an active NetworkManager
+connection. The application does not automatically reconfigure existing
+Wi-Fi, other instrument ports, or PSU network parameters. In a managed
+network, DHCP and read-only discovery remain the default.
+
+For separate directly connected instruments with overlapping `169.254/16`
+ranges, discovery binds TCP and multicast traffic to the selected adapter
+and a local source address on that adapter. After a successful test, Profile
+Runner and Manual Control reuse the discovered IP/interface fields, but
+every actual run still makes a fresh verified control connection.
+
+A PSU that was recently powered on may require around 30 seconds to obtain
+its Auto-IP address. A second **Test connection** may then succeed without
+configuring static addresses. If several instruments match, specify the
+intended IP and network adapter rather than using an arbitrary first match.
+
+The CSV chooser now remembers the last selected folder across launches.
+On first use, it starts at `profiles/`, rather than `~/Downloads`.
+
+**Scope:** these networking changes are **offline-tested only**. They
+require real dock/PSU and NetworkManager validation before release. More
+development items are tracked in [the backlog](docs/BACKLOG.md).
+
 ## v13.6 development notes
 
 - The scheduler validates and streams a synthetic 1,000-hour profile with 50 ms update intervals without allocating every tick in advance. This does **not** validate 41-day unattended execution.
