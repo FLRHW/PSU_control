@@ -8,6 +8,19 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Active priority: reliable network discovery and guided setup (v13.6)
 
+- [x] **Defer independent DSRemote screen-thread fault** per user direction.
+  DSRemote live display worked with PSU GUI open, including Wave Inspector,
+  then stopped with `screen_thread.cpp line 783`; prior same error occurred
+  with PSU GUI closed. Separate two-channel Rigol RAW capture also passed.
+  Resume only if needed for stable simultaneous operation.
+- [x] **Read-only effective route inspection in PSU Network settings:**
+  when a PSU IPv4 is entered, `Inspect routes` now shows Linux's actual
+  interface and source IP selected for that host and flags a mismatch with
+  the chosen adapter. Adds no routes and no PSU commands. Mock tests added;
+  pending hardware GUI validation.
+- [x] **Explain blank IP more clearly:** CSV address first then auto-discovery.
+
+
 - [x] Find physical Ethernet interfaces even when an adapter (including a
   Dell D6000 dock) has carrier but no IPv4 address.
 - [x] Explicitly bind link-local TCP and mDNS discovery to the selected adapter
@@ -86,9 +99,10 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   system route, no retrieval errors reported; export decimation 500
   saved only 2 rows per channel. Confirms basic Ethernet waveform
   acquisition, not continuous/high-volume transfer reliability.
-- [ ] **Independent larger capture:** decimation 1, deeper acquisition
-  if supported, to discriminate intermittent DSRemote failure from
-  general network transport limitations.
+- [x] **Independent moderate capture:** CH2 and CH4 each retrieved
+  6,000/6,000 points, in five 1,200-point RAW blocks; both full-resolution
+  exports succeeded. Separate earlier CH4 1200-request/128-response remains
+  unexplained, but DSRemote analysis is deferred.
 - [ ] **Rigol DSRemote waveform-read fault after successful connect:**
   after restoring the correct /32 host route, DSRemote established a
   session and displayed waveforms briefly, then failed at
