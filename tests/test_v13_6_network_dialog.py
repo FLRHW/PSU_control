@@ -61,6 +61,18 @@ class NetworkDialogTests(unittest.TestCase):
         self.assertNotIn('diagnose_connection(',body)
         self.assertNotIn('setup_ethernet_link_local(',body)
 
+    def test_route_inspection_is_read_only_and_not_automatic(self):
+        init=ast.get_source_segment(SOURCE,method('__init__'))
+        self.assertIn("QPushButton('Inspect routes')",init)
+        inspect=ast.get_source_segment(SOURCE,method('inspect_network_routes'))
+        self.assertIn('network_route_summary()',inspect)
+        self.assertIn('self.running',inspect)
+        self.assertIn('self.manual_worker is not None',inspect)
+        self.assertNotIn('setup_ethernet_link_local(',inspect)
+        self.assertNotIn('nmcli',inspect)
+        opening=ast.get_source_segment(SOURCE,method('open_network_settings'))
+        self.assertNotIn('inspect_network_routes(',opening)
+
     def test_runner_and_manual_use_same_values_and_safety_guards(self):
         for name in ('start_run','connect_manual','test_connection','prepare_adapter','run_finished','manual_done'):
             self.assertIsNotNone(method(name))
