@@ -1135,8 +1135,15 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
 
         with ExitStack() as socket_stack:
             from cpx400dp_discovery import connect_psu, connect_on
-            sock, resolved_host, resolved_interface = connect_psu(
-                host, psu_interface, discover_enabled=not no_discovery)
+            try:
+                sock, resolved_host, resolved_interface = connect_psu(
+                    host, psu_interface, discover_enabled=not no_discovery)
+            except (OSError, ValueError, ConnectionError) as exc:
+                # No control socket or initial snapshot was obtained.
+                # Do not imply that a restoration attempt was performed.
+                print(f'[CONNECTION NOT ESTABLISHED] {exc}; profile not started; '
+                      'no instrument control commands sent', file=sys.stderr, flush=True)
+                raise
             sock = socket_stack.enter_context(sock)
             sock.settimeout(0.5)
             if pause_control_socket is not None:
