@@ -9,6 +9,36 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Network settings dialog + DSRemote status (2026-11-16)
+
+- **Implemented on dev, offline-tested:** Profile Runner now shows one
+  **Network settings…** button instead of cramped inline network controls.
+  A separate nonmodal dialog holds full-width IP and interface widgets,
+  read-only Test connection, opt-in Prepare adapter, and diagnostic status.
+  Opening the dialog alone does **not** probe the network or configure
+  an adapter. The existing validated discovery and single-socket logic
+  and operation ownership guards are retained. New
+  `tests/test_v13_6_network_dialog.py` checks layout and safety.
+- **CI PASS:** GitHub Actions
+  [#43925537774](https://github.com/FLRHW/PSU_control/actions/runs/43925537774)
+  for code/test commit `c2b3d6e688c2e553df7882d66ee4dd98fad57bf1`
+  completed successfully. No physical/visual acceptance of the new
+  dialog has yet been performed.
+- **User's independent Rigol finding:** DSRemote suffered
+  corrupted/non-updating waveform display after horizontal-scale
+  changes, initially with PSU GUI open. Closing PSU GUI and reconnecting
+  DSRemote initially seemed to fix it, but it **recurred with PSU GUI
+  fully closed**. This disproves the claim that the PSU GUI must be
+  open to reproduce the DSRemote fault; root cause still unverified.
+  Treat Rigol investigation as separate from CPX400DP control changes.
+- **Next:** sync `dev`, inspect the Network settings dialog for readable
+  values; test its read-only identification only when no PSU session is
+  active. No new PSU hardware profile is needed for the layout revision.
+  Separately check Rigol front-panel acquisition vs DSRemote display
+  during horizontal-scale changes and verify direct scope networking if
+  necessary. NetworkManager persistence and safe overlapping-route
+  management remain unimplemented and in `docs/BACKLOG.md`.
+
 ## Hardware validation — simultaneous Rigol/PSU operation (2026-11-16)
 
 **User-confirmed hardware results:** With Rigol DSRemote open and updating,
