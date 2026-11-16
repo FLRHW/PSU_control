@@ -8,6 +8,27 @@
 
 > **Critical distinction:** This is lab automation software, **not a hardware safety interlock**. On communications failure the PSU may retain its last commanded settings. An instrument readback is not proof of terminal voltage, current, or safety.
 
+## Rigol power-state dependent route audit (2026-11-16)
+
+The user confirmed removal of HOLD text, then invoked **Inspect routes**
+with Rigol powered off: the app reported "No overlapping IPv4 network
+routes found." A new screenshot after powering on the Rigol underscored
+that this must be interpreted as an **active-route snapshot**, not
+evidence of a permanently conflict-free topology. Both direct
+interfaces had previously used `169.254.0.0/16`; a host route to
+Rigol `169.254.179.79` via built-in Ethernet protected DSRemote.
+Do not infer the permanent routing state from one power state.
+
+As a defensive measure, `scripts/cpx400dp_network_setup.py` now refuses
+**Prepare adapter…** when a different active NIC already owns a
+non-host IPv4 prefix overlapping `169.254.0.0/16`. This avoids silently
+creating competing link-local routes; it does not solve persistence.
+The `Inspect routes` no-overlap message now explicitly cautions about
+links being down. Offline tests for the refusal and message passed in
+GitHub Actions [#43960100687](https://github.com/FLRHW/PSU_control/actions/runs/43960100687)
+(134 tests, 2 skips). No PSU commands, IP assignments, or route
+mutations were made as part of the audit.
+
 ## v13.6 UI and route-audit increment — 2026-11-16
 
 **User-directed UI changes on `dev`:**
