@@ -23,6 +23,79 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## v13.6 network-priority increment — 2026-11-16
+
+**Hardware topology described by user:** Rigol DS1054Z directly on workstation
+Ethernet `enp3s0f1`, and CPX400DP through a Dell D6000 dock's Ethernet
+`enx0c3796303396`. The Rigol has previously replied at
+`169.254.179.79`; the PSU was previously verified at `169.254.51.7`.
+The dock's Ethernet link was physically UP but initially had no IPv4 address,
+while Linux tried to reach the PSU via the Rigol link. The user temporarily
+added `169.254.51.8/16` to the dock adapter; no persistent network
+configuration or completed instrument discovery test has yet been reported.
+These identifiers are examples from actual tests, not defaults to impose on
+all users.
+
+**Code implemented in `dev`:**
+
+- New `scripts/cpx400dp_network_setup.py`: enumerate up Ethernet devices
+  including USB docks without IPv4, classify wired physical vs Wi-Fi/virtual,
+  report read-only discovery diagnostics, and optionally create and activate
+  a dedicated NetworkManager **link-local** connection only after user
+  confirmation. A candidate must have carrier, be physical Ethernet, lack
+  IPv4, and lack an active NetworkManager profile. The setup uses `nmcli`
+  as argv (not shell), relies on user-authorised NetworkManager/Polkit, and
+  does **not** change other interfaces, route tables or PSU settings.
+  A failed connection activation attempts to remove the newly created
+  profile. This path is **offline-tested only**, not yet exercised on the
+  user's workstation.
+- `cpx400dp_discovery.interfaces()` now sees connected interfaces without
+  IPv4 for diagnostic/configuration purposes. Link-local TCP probes
+  (`connect_on`) use `SO_BINDTODEVICE` **and bind a matching local
+  169.254 source IP** to avoid selecting a source address from another
+  interface when independent ports use the same /16. mDNS probes also
+  select the interface's IPv4 multicast source. Existing ARP/cache/mDNS
+  candidate discovery and `*IDN?` model verification remain; no
+  whole-subnet sweep or unverified identity selection is permitted.
+- `cpx400dp_gui.py` Profile Runner gains **Test connection**
+  (asynchronous, read-only identity; temporary socket only) and
+  **Prepare adapter…** (explicit confirmation before OS configuration).
+  A successful unambiguous identification populates the existing PSU IP
+  and interface controls, but starting a profile still opens a separate
+  validated runner connection. Setup/discovery controls are unavailable
+  while another worker/session owns the PSU. The CSV file dialog now
+  remembers the last folder in QSettings, initially defaulting to
+  the repository `profiles/` directory. No extra Qt/Python packages.
+- `tests/test_v13_6_network_setup.py` includes detection of a dock
+  lacking IPv4, protective setup refusal for Wi-Fi/virtual/existing-IP
+  adapters, user-scoped `nmcli` commands, multiple-PSU ambiguity, and
+  GUI feature guards. The existing socket binder regression was updated
+  to assert explicit link-local source address binding.
+
+**Offline evidence:** GitHub Actions run
+[#43914927927](https://github.com/FLRHW/PSU_control/actions/runs/43914927927)
+passed **118 tests (116 passed, 2 skipped), 0 failures** on code commit
+`a43fb655076a41b99c52d1290c50176c151c8ecd`. Subsequent README and
+documentation commits do not modify source/tests. **No live CPX400DP,
+NetworkManager activation, GUI visual or reboot persistence test has been
+performed for this increment.**
+
+**Next controlled checks:** after syncing `dev`, launch GUI with existing
+dependencies. With PSU connected via D6000 and Rigol on separate port,
+select PSU IP `169.254.51.7` if still current, Interface `Auto`, and
+use **Test connection**. Expect a verified `*IDN?` and correct dock interface.
+If no IPv4 is present, inspect **Prepare adapter…** before accepting; it
+must not propose the Rigol, Wi-Fi or an already configured adapter. After
+confirmation, allow approximately 30 seconds for Auto-IP and retest.
+**Do not start an energised profile before basic identity and the user's
+normal safety checks.** If a setup command fails, report the exact GUI
+message rather than bypassing network safeguards with ad-hoc `sudo`.
+
+**Deferred tasks:** see [BACKLOG.md](BACKLOG.md) for VXI-11 discovery,
+improvements to NetworkManager recovery, truly bounded-memory reporting,
+high-resolution long-duration zoom, endurance and CV/CC hardware checks.
+Do not promote `dev` to `main` until the user approves a tested release.
+
 ## 1. Project objective and environment
 
 Control an **Aim-TTi CPX400DP** dual-channel programmable power supply from **Kubuntu/Linux**, loading a CSV profile of voltage setpoints, current limits and explicit output-enable actions. Support either stepwise or piecewise-linear profiles, sufficiently short command intervals to emulate ramps, readback logging, offline previews, interactive post-run reports and manual operation.
