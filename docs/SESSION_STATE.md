@@ -9,6 +9,37 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Independent Rigol Ethernet waveform retrieval — PASS, limited size (2026-11-16)
+
+User ran the separate Rigol capture application with DSRemote closed
+and supplied the capture console:
+
+```text
+Instrument verified: RIGOL TECHNOLOGIES,DS1054Z,DS1ZA221303251,00.04.04.SP4
+Network path: automatic system route
+CH2: 576/576 points (100.0%)
+CH2: wrote 2 of 576 acquired samples (decimate 500)
+CH2: exported 2 rows, saved spacing 1 s (original spacing 0.002 s)
+CH4: 856/856 points (100.0%)
+CH4: wrote 2 of 856 acquired samples (decimate 500)
+CH4: exported 2 rows, saved spacing 1 s (original spacing 0.002 s)
+Saved: /mnt/Data/01_Engineering/01_Projects/301_Rigol_DS1054Z/Rigol_capture/captures/rigol_scope.csv
+```
+
+**Conclusion supported by observation:** Rigol could be identified
+over Ethernet and all requested waveform samples for CH2 and CH4
+were retrieved without a reported acquisition error, with automatic
+system routing and the temporary correct Rigol /32 route in place.
+Only two samples per channel were saved after **export decimation=500**.
+This is a positive independent capture test but not proof of
+sustained or high-volume transfer reliability. The earlier
+DSRemote `screen_thread.cpp line 783` failure may be DSRemote-specific
+or triggered by larger/continuous transfers; root cause unknown.
+Next useful test: single capture with decimation 1 and a larger
+memory depth if supported, plus check IP route at the time of
+any DSRemote error. Do not conflate this separate capture tool
+with PSU_control source or modify its code as part of PSU fixes.
+
 ## Rigol DSRemote connection recovered; waveform stream still fails (2026-11-16)
 
 After the user re-added the Rigol-specific route, `ip route get`
