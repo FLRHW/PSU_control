@@ -64,6 +64,14 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   overlapping subnets on separate interfaces, ignores /32 host-route
   exceptions and only displays findings. No route, address or
   NetworkManager changes occur.
+- [x] **Read-only inspection limitation documented:** the user saw no
+  overlapping routes with Rigol OFF, then repeated the check after
+  powering it ON. Network inspection now warns that the result applies
+  only to currently installed routes; it is not a proof of persistence.
+- [x] **Conservative setup safety gate (offline-tested):** refuse to
+  auto-add a link-local NetworkManager profile when a different active
+  adapter already has an overlapping non-host route. This prevents
+  silent reintroduction of the proven Rigol/PSU route collision.
 - [ ] **User-approved persistent networking:** inspect existing
   NetworkManager profiles and routes, propose a safe configuration for
   directly connected instruments (including the externally configured
