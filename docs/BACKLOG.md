@@ -29,13 +29,18 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 - [x] Avoid *IDN? probe-then-reconnect for actual runner and standalone
   Manual Control; retain the exact successfully identified TCP connection.
   Offline regression tested; on-hardware verification still needed.
-- [ ] **Hardware-validate** retained-socket runner and Manual Control startup,
-  original-state snapshot, cleanup and `LOCAL`-last.
-- [ ] **Simultaneous-instrument coexistence:** capture evidence with DSRemote
-  open/connected while the CPX400DP GUI is idle, read-only testing, and running
-  an instrument test. Correct interface routes MUST remain in place; opening
-  the GUI by itself must not affect Rigol waveform acquisition. Do not infer
-  software interference from correlation without discriminating tests.
+- [x] **Hardware-validated** retained-socket runner, standalone Manual Control
+  connection/readout/disconnect, original-state snapshot and `LOCAL`-last
+  on 2026-11-16. Two-channel 10.csv run exit 0, 178 good readbacks,
+  both programmed final states verified and sampled outputs matched.
+  This is short-run validation, not uptime/reboot proof.
+- [x] **Short-run simultaneous coexistence:** user confirmed Rigol DSRemote
+  continued updating during PSU read-only test and reported normal DSRemote
+  operation after successful 10.csv run. Earlier rendering issues were not
+  reproduced in this run.
+- [ ] **Coexistence endurance:** confirm no intermittent rendering loss
+  across longer operation and after persistent network setup/reboot.
+  Correct instrument-specific routes MUST remain in place.
 - [ ] Support persistent non-overlapping routes or explicitly managed
   host-specific routes for separate directly connected Auto-IP instruments.
   Protect existing working Rigol/Wi-Fi interfaces; get permission before OS
