@@ -1,6 +1,6 @@
 # CPX400DP controller — engineering handover
 
-**Updated:** 2026-11-15  
+**Updated:** 2026-11-16  
 **Repository:** `FLRHW/PSU_control`  
 **Working branch reviewed:** `dev`  
 **Purpose:** Persistent engineering context for future developers and ChatGPT conversations.  
@@ -22,6 +22,42 @@ The first development increment replaces the former eagerly materialised `schedu
 - New `scripts/cpx400dp_regulation.py` conservatively decodes events (CV, CC, UNREG, FAULT, UNKNOWN). The GUI shows last-observed events only; ambiguous combinations are UNKNOWN. Standalone ManualWorker queries LSR over its **own existing socket** while paused profiles query the same registers solely via the runner. No second PSU owner. Nonzero paused LSR values are recorded in the measurement CSV as `limit_event_sample` before event history clears.
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
+
+## v13.6 physical identification test — PASS (2026-11-16)
+
+**User hardware validation, read-only:** After synchronizing `dev`, the user
+ran `python3 scripts/cpx400dp_gui.py`, pressed **Test connection** and
+supplied GUI/console observations. The application displayed:
+
+```text
+✓ Identified THURLBY THANDAR, CPX400DP, 446696, 2.00-4.06
+  at 169.254.51.7 via enx0c3796303396.
+  Test socket closed; profile not started.
+[PSU DISCOVERED] 169.254.51.7:9221 via enx0c3796303396 —
+  THURLBY THANDAR, CPX400DP, 446696, 2.00-4.06
+```
+
+**Validated on physical PSU:** The read-only test opened a connection
+through the Dell D6000 Ethernet adapter, received a matching `*IDN?`
+identity, closed the diagnostic socket, and did not run a profile.
+The other directly connected instrument (Rigol) remained attached.
+The Qt/Wayland `QWindow::requestActivate()` warning in terminal is
+unrelated to Ethernet discovery; it requires investigation only if window
+focus breaks.
+
+**NOT validated:** Standalone manual writes, profile execution/restoration
+on this new revision, NetworkManager **Prepare adapter…** operation,
+persistent IPv4 provisioning or discovery after reboot. The user had
+previously assigned the temporary address `169.254.51.8/16` to the dock,
+so discovery success does NOT establish a zero-configuration first-use
+experience. A new run should test persistence/one-time setup without
+changing PSU IP or disturbing the Rigol. The GUI currently disables
+**Prepare adapter…** when the dock already has IPv4; that is expected.
+
+**Next:** Evaluate NetworkManager management of the D6000 Ethernet link
+and verify automatic or explicitly authorised persistent link-local setup,
+then re-test the discovery button after reboot. Keep all deferred items in
+[BACKLOG.md](BACKLOG.md). No merge to `main` yet.
 
 ## v13.6 network-priority increment — 2026-11-16
 
