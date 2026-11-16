@@ -81,6 +81,14 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 - [ ] **Usability polish:** consider showing `Automatic discovery` explicitly
   when the PSU IP field is blank; the current auto-population on successful
   discovery is working and hardware-verified.
+- [x] **Separate Rigol capture app: first independent waveform retrieval
+  succeeded:** CH2 576/576 and CH4 856/856 acquired through automatic
+  system route, no retrieval errors reported; export decimation 500
+  saved only 2 rows per channel. Confirms basic Ethernet waveform
+  acquisition, not continuous/high-volume transfer reliability.
+- [ ] **Independent larger capture:** decimation 1, deeper acquisition
+  if supported, to discriminate intermittent DSRemote failure from
+  general network transport limitations.
 - [ ] **Rigol DSRemote waveform-read fault after successful connect:**
   after restoring the correct /32 host route, DSRemote established a
   session and displayed waveforms briefly, then failed at
