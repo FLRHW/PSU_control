@@ -23,6 +23,76 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## v13.6 connection ownership correction — 2026-11-16
+
+**New user hardware finding:** read-only **Test connection** succeeded on
+Dell D6000, but starting the runner later produced:
+
+```text
+[PSU DISCOVERED] 169.254.51.7:9221 via enx0c3796303396 —
+  THURLBY THANDAR, CPX400DP, 446696, 2.00-4.06
+ERROR: Discovered PSU at 169.254.51.7 on enx0c3796303396,
+  but connection failed: [Errno 111] Connection refused
+REPORT SKIPPED: no successful PSU readbacks were recorded
+```
+
+The original implementation first opened a short-lived `*IDN?` identity
+connection in discovery and **immediately opened a second connection** for
+the runner or standalone Manual Control. The log proves the first succeeded
+and the second was refused; it does **not** conclusively prove whether the
+PSU temporarily rejected a new session, another client was connected,
+or some other transport limit was hit.
+
+**Code correction:** `cpx400dp_discovery.identify_connection()` now verifies
+the model using `*IDN?` and returns the **same still-open TCP socket**.
+`discover(..., retain_sockets=True)` returns identified candidates and
+owned sockets to `connect_psu()`; all unselected candidate sockets are
+closed, all sockets are closed on ambiguous selection/error, and the selected
+socket is passed directly to the runner/manual worker for its original-state
+snapshot. No commands altering output are issued before the verified
+snapshot; the runner's existing bounded snapshot retry and final
+restoration/`LOCAL`-last invariants remain in force. Normal read-only
+`probe()` still closes the temporary socket, ensuring that the GUI **Test
+connection** never keeps ownership or starts a profile.
+
+The runner emits an explicit `[CONNECTION NOT ESTABLISHED]` marker when the
+control connection cannot be obtained, before any initial snapshot or
+output control. GUI maps that case to `PSU connection failed — profile not
+started` rather than claiming to have attempted or failed restoration.
+No new retry occurs *after* a successful identity query; the same
+connection is used. Added `tests/test_v13_6_socket_reuse.py` for selected
+socket reuse, unknown-instrument closure, probe closure, ambiguous socket
+closure and preflight error guards.
+
+**Independent Rigol issue:** The user's PC had simultaneous
+`169.254.0.0/16` routes through built-in Ethernet and D6000 dock,
+which caused Linux to route Rigol `169.254.179.79` through the D6000
+instead of `enp3s0f1`. The user added temporary
+`169.254.179.79/32 dev enp3s0f1 src 169.254.10.1`; subsequent
+route lookups were correct and a four-packet Rigol ping passed.
+The user observed DSRemote graphics/update problems while the PSU GUI
+was open, resolving after its closure. This is a **correlation, not
+demonstrated software interference**. The GUI does not periodically
+trigger network discovery while idle; the live hardware cause remains to
+be isolated by comparing idle GUI, read-only identification and running
+profile with correct routes. Do not change the system's network
+configuration in response without explicit user approval.
+
+**Validation:** GitHub Actions run
+[#43920224405](https://github.com/FLRHW/PSU_control/actions/runs/43920224405)
+passed **123 tests (121 passed, 2 skipped), no failures** on source commit
+`1c1b52454f29ebe418e5f912c0b2a936463cb7ef`. Later backlog
+and handover updates are documentation-only. **The retained-socket
+code is offline-tested, not hardware-validated.**
+
+**Next hardware checks:** sync `dev`, keep existing corrected temporary
+routes, verify both instrument connection tests, then run one short
+low-energy PSU profile with its outputs disconnected from a sensitive
+load and confirm snapshot, output behaviour, final state verification and
+LOCAL. Do not initiate another profile until the front-panel settings
+have been checked after the earlier connection error. If it fails, paste
+the GUI Run output in full. Preserve main as released v13.5.
+
 ## v13.6 physical identification test — PASS (2026-11-16)
 
 **User hardware validation, read-only:** After synchronizing `dev`, the user
