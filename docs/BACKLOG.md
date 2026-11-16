@@ -38,22 +38,26 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   continued updating during PSU read-only test and reported normal DSRemote
   operation after successful 10.csv run. Earlier rendering issues were not
   reproduced in this run.
-- [ ] **Declutter Profile Runner network controls:** replace the current
-  cramped inline PSU IP, Interface, Test connection and Prepare adapter
-  controls (IP field currently clips the address in the GUI) with one
-  **Network settings…** button. Open a separate, comfortably sized dialog
-  containing the complete, untruncated IP/interface fields, read-only
-  discovery and identity tests, connection status/errors, and opt-in
-  NetworkManager setup/advanced options. The main runner should display
-  only a compact connected/not connected summary if helpful, without
-  wasting persistent toolbar space. Preserve the verified connection
-  implementation, avoid any background discovery while idle, and keep
-  network tests/configuration disabled when the runner or Manual Control
-  owns the instrument. Add GUI layout/state regression tests before
-  hardware acceptance.
-- [ ] **Coexistence endurance:** confirm no intermittent rendering loss
-  across longer operation and after persistent network setup/reboot.
-  Correct instrument-specific routes MUST remain in place.
+- [x] **Declutter Profile Runner network controls (offline-tested):** replace
+  inline PSU IP, Interface, Test connection and Prepare adapter with a
+  single **Network settings…** button. Its separate nonmodal dialog has
+  readable, untruncated IP/interface controls, read-only identity test,
+  diagnostic messages, and opt-in NetworkManager adapter setup. No PSU
+  discovery occurs on opening the dialog. The runner/Manual Control
+  continue to read the same underlying values; GUI structural tests pass.
+  **Visual/hardware GUI acceptance pending.**
+- [ ] **Rigol DSRemote independent display fault:** user observed DSRemote
+  display corruption/non-updating waveform after adjusting horizontal
+  timebase, and later **reproduced the problem with the PSU GUI fully
+  closed**. This rules out any conclusion that the PSU GUI must be open
+  to cause the fault. Diagnose DSRemote waveform acquisition/rendering
+  independently (verify scope front-panel state, network route,
+  screenshots/scope acquisition state and DSRemote reconnection).
+  Reproduction with the PSU GUI closed is evidence against a necessary
+  PSU-GUI interaction but does not establish root cause.
+- [ ] **Coexistence endurance:** confirm both instruments remain stable
+  after persistent networking/reboot. Correct interface-specific
+  routes MUST remain in place.
 - [ ] Support persistent non-overlapping routes or explicitly managed
   host-specific routes for separate directly connected Auto-IP instruments.
   Protect existing working Rigol/Wi-Fi interfaces; get permission before OS
