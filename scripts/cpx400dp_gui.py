@@ -23,7 +23,7 @@ try:
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
         QProgressBar, QMessageBox, QSplitter, QGroupBox, QFrame, QSizePolicy,
-        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget
+        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget, QDialog
     )
     QT_LIBRARY = 'PySide6'
 except ImportError:
@@ -198,14 +198,40 @@ class Window(QMainWindow):
         self.output_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         output_row.addWidget(self.output_label, 1)
         selectors.addLayout(output_row)
-        # Optional manual address/interface fallback; blank fields mean auto.
+        # Keep routine experiment controls clear: network configuration and
+        # diagnostics live in a separate nonmodal dialog. All existing
+        # connection users continue reading the same widgets and values.
+        network_row = QHBoxLayout()
+        self.network_settings_btn = QPushButton('Network settings…')
+        self.network_settings_btn.setToolTip(
+            'IP/interface, read-only PSU identification and optional adapter setup')
+        self.network_settings_btn.clicked.connect(self.open_network_settings)
+        network_row.addWidget(self.network_settings_btn)
+        network_row.addStretch()
+        selectors.addLayout(network_row)
+
+        self.network_dialog = QDialog(self)
+        self.network_dialog.setWindowTitle('CPX400DP — Network settings')
+        self.network_dialog.setMinimumWidth(680)
+        self.network_dialog.resize(740, 310)
+        dialog_layout = QVBoxLayout(self.network_dialog)
+        dialog_layout.setContentsMargins(18, 16, 18, 14)
+        dialog_layout.setSpacing(12)
+        dialog_heading = QLabel('Power supply connection')
+        dialog_heading.setStyleSheet('font-size: 17px; font-weight: 650;')
+        dialog_layout.addWidget(dialog_heading)
+        dialog_hint = QLabel(
+            'Leave IP and Interface on Auto for automatic discovery. '
+            'Testing sends only *IDN? and closes its temporary connection.')
+        dialog_hint.setWordWrap(True)
+        dialog_layout.addWidget(dialog_hint)
         connection_row = QHBoxLayout()
-        connection_row.addWidget(QLabel('PSU:'))
+        connection_row.addWidget(QLabel('PSU IPv4:'))
         self.psu_ip = QLineEdit()
         self.psu_ip.setPlaceholderText('Auto (CSV address first)')
-        self.psu_ip.setToolTip('Optional IPv4 override for discovery; blank uses the address in the CSV.')
-        self.psu_ip.setMaximumWidth(170)
-        connection_row.addWidget(self.psu_ip)
+        self.psu_ip.setToolTip('Optional IPv4 override; blank uses the address in the CSV.')
+        self.psu_ip.setMinimumWidth(230)
+        connection_row.addWidget(self.psu_ip, 2)
         connection_row.addWidget(QLabel('Interface:'))
         self.psu_interface = QComboBox()
         self.psu_interface.setEditable(True)
@@ -216,23 +242,41 @@ class Window(QMainWindow):
                 self.psu_interface.addItem(iface)
         except OSError:
             pass
-        self.psu_interface.setToolTip('Optional Linux interface override; Auto probes all active interfaces.')
-        connection_row.addWidget(self.psu_interface)
+        self.psu_interface.setMinimumWidth(230)
+        self.psu_interface.setToolTip(
+            'Optional network interface override; Auto checks active interfaces.')
+        connection_row.addWidget(self.psu_interface, 2)
+        dialog_layout.addLayout(connection_row)
+
+        dialog_actions = QHBoxLayout()
         self.test_connection_btn = QPushButton('Test connection')
-        self.test_connection_btn.setToolTip('Read-only identification; opens and closes a temporary connection. No PSU output commands.')
+        self.test_connection_btn.setToolTip(
+            'Read-only identification; no PSU output commands.')
         self.test_connection_btn.clicked.connect(self.test_connection)
-        connection_row.addWidget(self.test_connection_btn)
+        dialog_actions.addWidget(self.test_connection_btn)
         self.prepare_adapter_btn = QPushButton('Prepare adapter…')
         self.prepare_adapter_btn.setEnabled(False)
-        self.prepare_adapter_btn.setToolTip('One-time optional NetworkManager configuration, only after your confirmation.')
+        self.prepare_adapter_btn.setToolTip(
+            'Opt-in one-time NetworkManager link-local configuration.')
         self.prepare_adapter_btn.clicked.connect(self.prepare_adapter)
-        connection_row.addWidget(self.prepare_adapter_btn)
-        connection_row.addStretch()
-        selectors.addLayout(connection_row)
-        self.connection_message = QLabel('Not tested — profile execution establishes its own verified connection.')
+        dialog_actions.addWidget(self.prepare_adapter_btn)
+        dialog_actions.addStretch()
+        dialog_layout.addLayout(dialog_actions)
+
+        self.connection_message = QLabel(
+            'Not tested — profile execution establishes its own verified connection.')
         self.connection_message.setWordWrap(True)
+        self.connection_message.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.connection_message.setMinimumHeight(55)
         self.connection_message.setStyleSheet('color: #455a70; font-size: 12px;')
-        selectors.addWidget(self.connection_message)
+        dialog_layout.addWidget(self.connection_message)
+        dialog_layout.addStretch()
+        bottom_actions = QHBoxLayout()
+        bottom_actions.addStretch()
+        close_network_btn = QPushButton('Close')
+        close_network_btn.clicked.connect(self.network_dialog.hide)
+        bottom_actions.addWidget(close_network_btn)
+        dialog_layout.addLayout(bottom_actions)
         toolbar.addLayout(selectors, 1)
 
         preview_tools = QVBoxLayout()
@@ -761,6 +805,11 @@ class Window(QMainWindow):
         if self.profile and not self.running:
             self.clear_previous_run_display()
             self.preview_debounce.start()
+
+    def open_network_settings(self):
+        # Nonmodal: no extra instrument socket, no discovery on opening.
+        # Running/manual ownership still disables Test/Prepare controls.
+        self.network_dialog.show()
 
     def choose_profile(self):
         saved = Path(str(self.settings.value('last_profile_directory', '') or '')).expanduser()
