@@ -49,6 +49,23 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   Kubuntu after PyQt5 QDialog import fix. User confirmed layout is fine;
   blank IP auto-discovered live PSU 169.254.51.7 via D6000 and
   auto-populated the verified address. No profile run was needed.
+- [ ] **Profile Runner toolbar layout:** move the existing **Network
+  settings…** button to the right of the read-only Profile duration
+  box (same top-right toolbar row); remove its dedicated row from the
+  left selector column to recover vertical space for profile plots.
+  Retain the working separate network dialog and shared IP/interface
+  controls, with no changes to instrument connection behaviour.
+- [ ] **Profile preview output-state HOLD messaging:** keep the
+  safety-relevant information, but remove the visually intrusive
+  text currently occupying the top toolbar's second row. Display
+  channel enable/HOLD behaviour in a clear, compact profile-details
+  location or contextual warning. Source:
+  `cpx400dp_gui.py::preview_ready()`:
+  `CHx initially HOLD` means first enable command occurs after t=0;
+  `CHx HOLD: initial output state retained` means no explicit
+  enable commands exist for that channel. Never silently imply that
+  HOLD means OFF; the actual initial state is read from the PSU
+  immediately before a run.
 - [ ] **Usability polish:** consider showing `Automatic discovery` explicitly
   when the PSU IP field is blank; the current auto-population on successful
   discovery is working and hardware-verified.
