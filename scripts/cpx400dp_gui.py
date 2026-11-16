@@ -201,15 +201,10 @@ class Window(QMainWindow):
         # Keep routine experiment controls clear: network configuration and
         # diagnostics live in a separate nonmodal dialog. All existing
         # connection users continue reading the same widgets and values.
-        network_row = QHBoxLayout()
         self.network_settings_btn = QPushButton('Network settings…')
         self.network_settings_btn.setToolTip(
             'IP/interface, read-only PSU identification and optional adapter setup')
         self.network_settings_btn.clicked.connect(self.open_network_settings)
-        network_row.addWidget(self.network_settings_btn)
-        network_row.addStretch()
-        selectors.addLayout(network_row)
-
         self.network_dialog = QDialog(self)
         self.network_dialog.setWindowTitle('CPX400DP — Network settings')
         self.network_dialog.setMinimumWidth(680)
@@ -297,12 +292,10 @@ class Window(QMainWindow):
         self.duration_box.setFixedWidth(75)
         self.duration_box.setToolTip('Main profile duration (CSV keyframes; excludes initial/final ramps)')
         preview_buttons.addWidget(self.duration_box)
+        preview_buttons.addSpacing(12)
+        preview_buttons.addWidget(self.network_settings_btn)
         preview_buttons.addStretch()
         preview_tools.addLayout(preview_buttons)
-        self.info_label = QLabel('Select a profile')
-        self.info_label.setWordWrap(True)
-        self.info_label.setStyleSheet('color: #455a70; font-size: 12px;')
-        preview_tools.addWidget(self.info_label)
         toolbar.addLayout(preview_tools, 2)
         layout.addLayout(toolbar)
         # Optional overrides take effect ONLY for this run; CSV stays untouched.
@@ -778,7 +771,7 @@ class Window(QMainWindow):
         try:
             settings = profile_summary(self.profile)
         except (ValueError, OSError, KeyError) as exc:
-            self.info_label.setText('Profile error: ' + str(exc))
+            self.append_console('PROFILE ERROR: ' + str(exc))
             return
         self._setting_defaults['channels'] = list(settings['channels'])
         for ch, check in self.channel_indicators.items():
@@ -985,7 +978,7 @@ class Window(QMainWindow):
         self.choose_btn.setEnabled(False)
         self.output_btn.setEnabled(False)
         self.start_btn.setEnabled(False)
-        self.info_label.setText('Generating offline preview…')
+        self.status.setText('Generating offline preview…')
         self.status.setText('Previewing (no PSU connection)')
         job = PreviewJob(self.profile, self.output_dir, self.active_overrides(), self)
         self.preview_job = job
@@ -1004,26 +997,16 @@ class Window(QMainWindow):
 
     def preview_failed(self, message):
         self.status.setText('Preview error')
-        self.info_label.setText(f'Could not parse or preview profile: {message}')
+        self.append_console(f'PREVIEW ERROR: {message}')
         self.start_btn.setEnabled(False)
         self.append_console(f'PREVIEW ERROR: {message}')
 
     def preview_ready(self, output_path, info, images):
         self.preview_path = Path(output_path)
         self.open_preview_btn.setEnabled(True)
-        warnings = []
-        for ch in info['channels']:
-            events = info['enable_commands'][ch]
-            if not events:
-                warnings.append(f'CH{ch} HOLD: initial output state retained')
-            elif events[0]['time_s'] == 0 and all(e['command']=='OFF' for e in events):
-                warnings.append(f'CH{ch} OFF throughout')
-            elif events[0]['time_s'] > 0:
-                warnings.append(f'CH{ch} initially HOLD')
         self.duration_box.setText(f'{info["duration_s"]:g} s')
         # Channel boxes are editable overrides: do not reset them from the
         # preview result, which may be stale while a new preview is pending.
-        self.info_label.setText('; '.join(warnings) if warnings else '')
         self.clear_plots()
         self.original_preview_pixmaps = []
         for title, blob in images:
