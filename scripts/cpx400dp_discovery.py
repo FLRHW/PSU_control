@@ -251,7 +251,7 @@ def discover(last_host=None, preferred_interface=None, *, mdns=True,
         for host, nic in pairs:
             if preferred_interface and nic != preferred_interface:
                 continue
-            if any((h, n) == (host, nic) for h, n, _ in found):
+            if any((device[0], device[1]) == (host, nic) for device in found):
                 continue
             if retain_sockets:
                 matched = identify_connection(host, nic, timeout)
