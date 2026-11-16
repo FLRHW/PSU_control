@@ -63,6 +63,26 @@ def setup_ethernet_link_local(interface, *, runner=subprocess.run):
                     capture_output=True, text=True, timeout=6, check=True).stdout.strip()
     if active and active not in ('--', '(none)'):
         raise ValueError('Adapter has an active NetworkManager profile; no changes made')
+    # A new link-local /16 would overlap an existing direct instrument link.
+    # Refuse setup rather than silently reroute another instrument.
+    audit = runner(['ip', '-j', '-4', 'route', 'show', 'table', 'main'],
+                   capture_output=True, text=True, timeout=4, check=True)
+    for entry in json.loads(audit.stdout):
+        dest = entry.get('dst', '')
+        other = entry.get('dev')
+        if not dest or not other or other == interface:
+            continue
+        try:
+            subnet = ipaddress.ip_network(dest, strict=False)
+        except ValueError:
+            continue
+        if subnet.prefixlen < 32 and subnet.overlaps(
+                ipaddress.ip_network('169.254.0.0/16')):
+            raise ValueError(
+                f'Existing link-local network {subnet} on {other}; '
+                'automatic adapter setup would risk disconnecting another '
+                'instrument. No changes made. A multi-link configuration '
+                'requires reviewed per-host routes.')
     profile = PROFILE_PREFIX + interface
     # This can prompt the user via Polkit; it does not configure the PSU.
     runner(['nmcli', 'connection', 'add', 'type', 'ethernet',
@@ -163,7 +183,11 @@ def network_route_summary(*, runner=subprocess.run):
     """Human-readable, diagnostic-only warning for overlapping IPv4 routes."""
     collisions = overlapping_ipv4_routes(runner=runner)
     if not collisions:
-        return 'No overlapping IPv4 network routes found.'
+        return ('No overlapping IPv4 routes among the networks currently '
+                'installed. This is a snapshot, not a permanent network '
+                'health check. Routes can disappear when an instrument or '
+                'dock link is down and reappear when it reconnects; repeat '
+                'with all instruments and adapters connected.')
     details = '; '.join(
         f'{left} on {nic1} overlaps {right} on {nic2}'
         for left, nic1, right, nic2 in collisions)
