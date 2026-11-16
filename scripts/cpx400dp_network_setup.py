@@ -76,3 +76,47 @@ def setup_ethernet_link_local(interface, *, runner=subprocess.run):
             pass
         raise
     return profile
+
+
+def diagnose_connection(host=None, interface=None):
+    """Read-only identification; return a GUI-friendly structured result.
+
+    A CPX400DP is identified ONLY by its *IDN? response, never by a ping,
+    MAC address, ARP entry or the mere presence of an Ethernet cable.
+    """
+    from cpx400dp_discovery import discover
+    devices = adapter_details()
+    candidates = [item for item in devices if is_setup_candidate(item)]
+    if interface:
+        selected = [item for item in devices if item['name'] == interface]
+        if not selected:
+            return {'status': 'missing', 'message': f'Network adapter {interface} is not connected.',
+                    'matches': [], 'setup': []}
+        if not selected[0]['ipv4']:
+            return {'status': 'unconfigured',
+                    'message': f'Network adapter {interface} has no IPv4 address. '
+                               'Use Prepare adapter to enable automatic link-local addressing.',
+                    'matches': [], 'setup': [interface] if is_setup_candidate(selected[0]) else []}
+    try:
+        found = discover(last_host=host, preferred_interface=interface, all_matches=True)
+    except (OSError, ValueError, ConnectionError) as exc:
+        return {'status': 'error', 'message': str(exc), 'matches': [],
+                'setup': [item['name'] for item in candidates]}
+    if len(found) == 1:
+        address, nic, identity = found[0]
+        return {'status': 'found', 'message': f'{identity} at {address}, using {nic}',
+                'matches': found, 'setup': []}
+    if len(found) > 1:
+        return {'status': 'multiple',
+                'message': 'Multiple CPX400DP connections detected; select an IP and adapter '
+                           'before starting a profile.',
+                'matches': found, 'setup': []}
+    if candidates:
+        return {'status': 'unconfigured',
+                'message': 'No CPX400DP identified. One or more connected Ethernet adapters '
+                           'have no IPv4 address; these may be direct instrument links.',
+                'matches': [], 'setup': [item['name'] for item in candidates]}
+    return {'status': 'not_found',
+            'message': 'No CPX400DP responded to read-only identification. Check PSU power, '
+                       'cables and whether Auto-IP startup has finished (approximately 30 s).',
+            'matches': [], 'setup': []}
