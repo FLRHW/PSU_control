@@ -4,10 +4,61 @@
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
 **Stable release branch:** `main` (v13.5 merged from `dev`, PR #1, merge commit `7d5b3931404a9630c0343808e3ac7f695b289516`).  
-**Functional milestone:** **v13.6 read-only connection discovery hardware-validated** on 2026-11-16. Other v13.6 hardware operations and persistence remain unvalidated. v13.5 functional hardware acceptance completed and merged to `main`.  
+**Functional milestone:** **v13.6 retained-socket fix, standalone Manual Control, and profile 10.csv hardware-validated** on 2026-11-16. Persistent automatic networking and other v13.6 features remain unvalidated. v13.5 hardware-accepted baseline remains on `main`.  
 **Source baseline:** v13.6 retained-socket connection fix through `1c1b52454f29ebe418e5f912c0b2a936463cb7ef` (later docs-only commits; check current `dev` HEAD).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
+
+## Hardware validation — simultaneous Rigol/PSU operation (2026-11-16)
+
+**User-confirmed hardware results:** With Rigol DSRemote open and updating,
+the PSU **Test connection** identified `THURLBY THANDAR, CPX400DP,
+446696, 2.00-4.06` at `169.254.51.7:9221` via Dell D6000
+`enx0c3796303396`; DSRemote continued updating. Standalone
+**Manual Control** connected, displayed both channels' programmed
+and measured values, and disconnected successfully (user confirmed).
+The user then ran `profiles/10.csv` with CH1 and CH2 selected,
+50 ms steps, 250 ms readbacks, 0 s initial and 2 s final ramp.
+**Result: run completed, exit code 0**.
+
+**Runner evidence** (user-supplied Run output, run ID
+`20261116_174633_754482`):
+- `[PSU DISCOVERED]`, `[PAUSE CONTROL READY]`,
+  `[SNAPSHOT VERIFIED]` (two matching programmed-state reads);
+  initial CH1 5.000 V / 1.500 A / ON and CH2 3.000 V / 4.000 A / ON.
+- 401 scheduled main-profile slots; 441 setpoint groups;
+  1204 instructions; 564 unchanged settings suppressed;
+  maximum scheduling lateness 0.905 ms.
+- 178 successful readbacks, **0 failed**; one expected settling
+  readback, zero unexplained high readbacks, no output-health warnings
+  and no sustained-fault abort.
+- Both channels' **programmed final state VERIFIED**; post-restoration
+  physical output **MATCHED (sampled, not continuous proof)**;
+  `LOCAL: SENT`, `Run status: COMPLETED — cleanup verified`;
+  HTML report generated.
+- User reports **DSRemote also appears to work normally**.
+  This verifies coexistence for this particular setup/run, not
+  uninterrupted long-term reliability or post-reboot routing.
+- Logs on user's workstation:
+  `reports/10_console_20261116_174633_754482.log`,
+  `reports/10_measurements_20261116_174633_754482.csv`,
+  `reports/10_report_20261116_174633_754482.html`.
+  Only Run output was supplied, not full CSV/report bytes.
+
+**Validation classification:** Actual physical PSU test PASSED for
+retained verified socket, initial-state snapshot, standalone manual
+readout/disconnect, 20 s profile, restoration and LOCAL. The software's
+50 ms scheduling and measured sub-1 ms lateness are not physical
+SCPI processing time guarantees. User-confirmed DSRemote coexistence
+is limited to this session. NetworkManager persistent setup, restart
+survival, external-connection migration, multiple-PSU and VXI-11
+paths remain pending.
+
+**Next:** Do not change networking while currently working. Prioritise
+a user-friendly persistent configuration that preserves the Rigol
+host route and avoids two competing 169.254/16 default routes; request
+explicit OS-configuration approval. Controlled reboot test only once
+persistent setup is ready. Keep other work in `docs/BACKLOG.md`.
 
 ## Current increment — verified TCP session reuse (2026-11-16)
 
