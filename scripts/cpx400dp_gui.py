@@ -34,7 +34,7 @@ except ImportError:
             QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
             QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
             QProgressBar, QMessageBox, QSplitter, QGroupBox, QFrame, QSizePolicy,
-        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget
+            QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget, QDialog
         )
         QT_LIBRARY = 'PyQt5'
     except ImportError:
