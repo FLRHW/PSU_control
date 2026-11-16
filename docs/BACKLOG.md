@@ -38,14 +38,20 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   continued updating during PSU read-only test and reported normal DSRemote
   operation after successful 10.csv run. Earlier rendering issues were not
   reproduced in this run.
-- [x] **Declutter Profile Runner network controls (offline-tested):** replace
+- [x] **Declutter Profile Runner network controls (hardware/UI-tested):** replace
   inline PSU IP, Interface, Test connection and Prepare adapter with a
   single **Network settings…** button. Its separate nonmodal dialog has
   readable, untruncated IP/interface controls, read-only identity test,
   diagnostic messages, and opt-in NetworkManager adapter setup. No PSU
   discovery occurs on opening the dialog. The runner/Manual Control
   continue to read the same underlying values; GUI structural tests pass.
-  **Visual/hardware GUI acceptance pending.**
+  **Hardware/UI acceptance PASS (2026-11-16):** GUI opened correctly on
+  Kubuntu after PyQt5 QDialog import fix. User confirmed layout is fine;
+  blank IP auto-discovered live PSU 169.254.51.7 via D6000 and
+  auto-populated the verified address. No profile run was needed.
+- [ ] **Usability polish:** consider showing `Automatic discovery` explicitly
+  when the PSU IP field is blank; the current auto-population on successful
+  discovery is working and hardware-verified.
 - [ ] **Rigol DSRemote independent display fault:** user observed DSRemote
   display corruption/non-updating waveform after adjusting horizontal
   timebase, and later **reproduced the problem with the PSU GUI fully
