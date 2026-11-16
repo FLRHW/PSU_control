@@ -1,13 +1,58 @@
 # CPX400DP — current session state
 
-**Updated:** 2026-11-15  
+**Updated:** 2026-11-16  
 **Project:** `FLRHW/PSU_control`  
 **Active development branch:** `dev`  
 **Stable release branch:** `main` (v13.5 merged from `dev`, PR #1, merge commit `7d5b3931404a9630c0343808e3ac7f695b289516`).  
 **Functional milestone:** **v13.6 development started**. v13.5 functional hardware acceptance completed and merged to `main`; v13.6 code is offline-only and not hardware validated.  
-**Source baseline:** v13.6 code through `16054d124f864b634968bfd44a11331672ba72cf` (later documentation-only changes; always check current `dev` HEAD).
+**Source baseline:** v13.6 network code through `a43fb655076a41b99c52d1290c50176c151c8ecd` (later README/handover documentation updates; check current `dev` HEAD).
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
+
+## Active v13.6 priority — PSU connection UX (2026-11-16)
+
+**User hardware:** Rigol DS1054Z direct to `enp3s0f1` on the
+workstation; CPX400DP via Dell D6000 `enx0c3796303396`.
+Two independent `169.254.0.0/16` networks previously caused incorrect
+source/route selection. The dock interface was UP without IPv4; the user
+added temporary `169.254.51.8/16`. No user confirmation yet that a GUI
+connection test, NetworkManager setup, or reboot persistence succeeded.
+
+- **Implemented on dev:** `scripts/cpx400dp_network_setup.py` physical
+  Ethernet inspection (including no-IPv4 dock links), read-only diagnostic
+  outcomes, and an explicit-confirmation NetworkManager/Polkit one-time
+  link-local profile operation. Refuses Wi-Fi, virtual interfaces, missing
+  carrier, active NetworkManager profiles and adapters that already have IPv4.
+- **Implemented on dev:** `cpx400dp_discovery.py` uses both
+  `SO_BINDTODEVICE` and matching IPv4 source binding for link-local TCP
+  probes, plus an explicitly selected multicast source for mDNS.
+  Existing cache/ARP/mDNS/`*IDN?` verification is retained.
+- **Implemented on dev:** Profile Runner **Test connection** (temporary
+  read-only socket), optional **Prepare adapter…** after explicit approval,
+  clear status/ambiguity messages; checks suppressed during profile/manual
+  ownership; successful identification sets the selected host/interface.
+  CSV chooser now saves last-used directory, initially the `profiles/`
+  folder.
+- **Offline CI PASS:** [run #43914927927](https://github.com/FLRHW/PSU_control/actions/runs/43914927927)
+  at code commit `a43fb655076a41b99c52d1290c50176c151c8ecd`:
+  **118 tests run; 116 passed, 2 skipped, no failures**. Existing safety
+  tests remain green; new tests cover the unconfigured dock, NetworkManager
+  safety checks, source binding, duplicate identity and GUI controls.
+  Documentation-only commits follow; no source/test changes.
+- **Hardware and GUI visual testing: NOT YET PERFORMED on this increment.**
+  NetworkManager creation and adapter persistence remain unverified against
+  real dock; never claim a working PSU connection until user confirms `*IDN?`.
+- **Next action for user:** sync `dev`; open GUI; select PSU IP
+  `169.254.51.7` only if still current, Interface `Auto`; click
+  **Test connection**. If it identifies the PSU, report host/interface;
+  if it reports an unconfigured dock adapter, check that **Prepare
+  adapter…** proposes `enx0c3796303396`, then authorise only if
+  appropriate. Do not start energised profiles or change PSU network
+  settings yet. Capture the GUI status and any NetworkManager error.
+- **Backlog retained:** [BACKLOG.md](BACKLOG.md) tracks truly bounded-memory
+  reporting, longer-duration logging/zoom/recovery, hardware CV/CC
+  last-event validation, optional VXI-11 discovery and network error recovery.
+  `main` stays on released v13.5 pending explicit permission to merge.
 
 ## v13.6 development — current increment (2026-11-15)
 
@@ -105,11 +150,17 @@
 
 ## Next actions, in order
 
-1. On workstation: `git switch dev && git pull`, then `git status --short && git rev-parse HEAD`.
-2. Assistant checks the automated offline regression for each new `dev` commit before requesting any hardware test; reference successful CI run #43734073069 for the documented baseline. The user is responsible only for physical hardware measurements and interactions.
-3. **v13.5 release merged.** v13.6 current code has CI pass at `16054d1` (110 tests, 2 skipped); next tackle bounded-memory reporting and hardware-focused CC/CV verification when ready. User performs only physical hardware checks.
-4. Before any v13.6 release, complete bounded-memory report/log processing and offline stress tests; then request limited, controlled hardware validation of CV/CC last-event indicators, pause/manual integration and 50 ms scheduler. Keep `main` on v13.5 until explicitly approved.
-5. After each meaningful development/testing session, update this file with commit, results, unresolved items and next action. Prefer a short state (about one page) over entire chat histories.
+1. User syncs `dev` and tests the new **Test connection** button with the
+   CPX400DP through Dell D6000 while Rigol stays on its dedicated port.
+2. If the dock has no IPv4 address, show the opt-in **Prepare adapter…**
+   dialogue and confirm only for the correct idle physical interface.
+   Retest after link-local assignment; report identity/interface and errors.
+3. Assistant reconciles real hardware observations with the offline CI,
+   updates these docs and fixes remaining discovery bugs before asking for
+   any controlled PSU operation.
+4. Preserve single-socket ownership, snapshot/restore, 50 ms minimum gap and
+   `LOCAL` last. Keep `main` unchanged. Deferred long reporting and
+   CV/CC work remains in [BACKLOG.md](BACKLOG.md).
 
 ## Start-of-next-chat prompt
 
