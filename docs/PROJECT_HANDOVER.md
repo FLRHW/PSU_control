@@ -8,6 +8,38 @@
 
 > **Critical distinction:** This is lab automation software, **not a hardware safety interlock**. On communications failure the PSU may retain its last commanded settings. An instrument readback is not proof of terminal voltage, current, or safety.
 
+## Confirmed Linux route-selection failure (2026-11-16)
+
+User provided real workstation command outputs with both instruments powered on:
+
+```text
+ip route get 169.254.179.79
+169.254.179.79 dev enx0c3796303396 src 169.254.51.8
+ip route get 169.254.51.7
+169.254.51.7 dev enx0c3796303396 src 169.254.51.8
+ip -4 route
+169.254.0.0/16 dev enx0c3796303396 proto kernel scope link src 169.254.51.8
+169.254.0.0/16 dev enp3s0f1 proto kernel scope link src 169.254.10.1 metric 100
+```
+
+NetworkManager shows `enp3s0f1` **Wired connection 2** with
+`169.254.10.1/16`, while D6000 `enx0c3796303396` remains
+**connected (externally)** with temporary `169.254.51.8/16`.
+Wi-Fi remains connected via `wlp4s0` to `192.168.0.1`.
+**Root cause of DSRemote initial connection failure confirmed:** the
+Rigol IP `169.254.179.79` was routed to the D6000 (PSU) adapter
+rather than the built-in Rigol adapter. The earlier `/32` route
+exception had disappeared after network/link state changes. This
+explains failed socket establishment to Rigol, not necessarily the
+separate intermittent DSRemote screen_thread.cpp waveform-read error.
+
+A safe temporary remedy was recommended (user has not confirmed
+executing it this time):
+`sudo ip route replace 169.254.179.79/32 dev enp3s0f1 src 169.254.10.1`.
+No OS network configuration was changed by the assistant. Next
+work is persistent, interface-specific routing that does not disrupt
+other existing connections; any mutation requires user approval.
+
 ## Rigol power-state dependent route audit (2026-11-16)
 
 The user confirmed removal of HOLD text, then invoked **Inspect routes**
