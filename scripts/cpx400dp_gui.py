@@ -49,6 +49,7 @@ from cpx400dp_gui_core import (
 )
 from cpx400dp_preview import profile_summary, generate_preview
 from cpx400dp_manual import ManualWorker
+from cpx400dp_network_setup import diagnose_connection, setup_ethernet_link_local
 
 HERE = Path(__file__).resolve().parent
 
@@ -76,6 +77,41 @@ class PreviewJob(QThread):
         self.completed.emit(html_path, summary, images)
 
 
+class ConnectionProbeJob(QThread):
+    """Read-only, asynchronous *IDN? discovery. No profile control commands."""
+    completed = Signal(object)
+
+    def __init__(self, address, interface, parent=None):
+        super().__init__(parent)
+        self.address = address
+        self.interface = interface
+
+    def run(self):
+        try:
+            result = diagnose_connection(self.address, self.interface)
+        except Exception as exc:
+            result = {'status': 'error', 'message': str(exc),
+                      'matches': [], 'setup': []}
+        self.completed.emit(result)
+
+
+class AdapterSetupJob(QThread):
+    """Opt-in NetworkManager profile setup; never touches the PSU itself."""
+    completed = Signal(bool, str)
+
+    def __init__(self, interface, parent=None):
+        super().__init__(parent)
+        self.interface = interface
+
+    def run(self):
+        try:
+            profile = setup_ethernet_link_local(self.interface)
+        except Exception as exc:
+            self.completed.emit(False, str(exc))
+            return
+        self.completed.emit(True, profile)
+
+
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -89,6 +125,9 @@ class Window(QMainWindow):
         self.pause_control_dir = None
         self.pause_socket_path = None
         self.preview_job = None
+        self.connection_probe_job = None
+        self.adapter_setup_job = None
+        self.network_setup_candidates = []
         self.preview_path = None
         self.report_path = None
         self.process = None
@@ -120,7 +159,7 @@ class Window(QMainWindow):
         self.measurement_timer.setInterval(250)
         self.measurement_timer.timeout.connect(self.poll_measurements)
         # QSettings uses the standard per-user configuration directory on Kubuntu.
-        # Only the output directory is remembered; no instrument credentials.
+        # Last-used folders are remembered; never persist instrument credentials.
         self.settings = QSettings('CPX400DP', 'ControlGUI')
         saved_dir = str(self.settings.value('output_directory', '') or '')
         self.saved_output_dir = Path(saved_dir).expanduser() if saved_dir and Path(saved_dir).is_dir() else None
@@ -177,8 +216,21 @@ class Window(QMainWindow):
             pass
         self.psu_interface.setToolTip('Optional Linux interface override; Auto probes all active interfaces.')
         connection_row.addWidget(self.psu_interface)
+        self.test_connection_btn = QPushButton('Test connection')
+        self.test_connection_btn.setToolTip('Read-only identification; opens and closes a temporary connection. No PSU output commands.')
+        self.test_connection_btn.clicked.connect(self.test_connection)
+        connection_row.addWidget(self.test_connection_btn)
+        self.prepare_adapter_btn = QPushButton('Prepare adapter…')
+        self.prepare_adapter_btn.setEnabled(False)
+        self.prepare_adapter_btn.setToolTip('One-time optional NetworkManager configuration, only after your confirmation.')
+        self.prepare_adapter_btn.clicked.connect(self.prepare_adapter)
+        connection_row.addWidget(self.prepare_adapter_btn)
         connection_row.addStretch()
         selectors.addLayout(connection_row)
+        self.connection_message = QLabel('Not tested — profile execution establishes its own verified connection.')
+        self.connection_message.setWordWrap(True)
+        self.connection_message.setStyleSheet('color: #455a70; font-size: 12px;')
+        selectors.addWidget(self.connection_message)
         toolbar.addLayout(selectors, 1)
 
         preview_tools = QVBoxLayout()
@@ -705,11 +757,119 @@ class Window(QMainWindow):
             self.preview_debounce.start()
 
     def choose_profile(self):
-        start_dir = str(self.profile.parent) if self.profile else str(Path.home() / 'Downloads')
+        saved = Path(str(self.settings.value('last_profile_directory', '') or '')).expanduser()
+        first_use = HERE.parent / 'profiles'
+        start = self.profile.parent if self.profile else (
+            saved if saved.is_dir() else first_use if first_use.is_dir() else Path.home())
+        start_dir = str(start)
         filename, _ = QFileDialog.getOpenFileName(self, 'Choose a CPX400DP CSV profile',
                                                   start_dir, 'CSV profiles (*.csv);;All files (*)')
         if filename:
             self.load_profile(Path(filename))
+
+    def test_connection(self):
+        # Never open even a short-lived diagnostic socket while another GUI
+        # activity owns the instrument connection.
+        if (self.running or self.manual_worker is not None or
+            self.pause_manual_active or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
+            return
+        host = self.psu_ip.text().strip() or None
+        iface = self.psu_interface.currentText().strip()
+        iface = None if iface in ('', 'Auto') else iface
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
+        self.manual_connect_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+        self.connection_message.setText('Searching Ethernet adapters (read-only; no output commands)…')
+        self.connection_probe_job = ConnectionProbeJob(host, iface, self)
+        self.connection_probe_job.completed.connect(self.connection_test_finished)
+        self.connection_probe_job.start()
+
+    def connection_test_finished(self, result):
+        self.test_connection_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.manual_connect_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.start_btn.setEnabled(bool(self.profile and self.preview_path) and
+                                  not self.running and self.manual_worker is None)
+        self.network_setup_candidates = list(result.get('setup', []))
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
+        self.connection_message.setText(result.get('message', 'No connection result'))
+        if result.get('status') == 'found':
+            host, iface, identity = result['matches'][0]
+            self.psu_ip.setText(host)
+            if self.psu_interface.findText(iface) < 0:
+                self.psu_interface.addItem(iface)
+            self.psu_interface.setCurrentText(iface)
+            self.connection_message.setText(f'✓ Identified {identity} at {host} via {iface}. '
+                                            'Test socket closed; profile not started.')
+        elif result.get('status') == 'multiple':
+            self.connection_message.setText(result['message'] + ' ' +
+                                            '; '.join(f'{h} via {nic}' for h, nic, _ in result['matches']))
+        # Result signals are delivered on the GUI thread; release worker after
+        # the thread exits, not while its run() method is still unwinding.
+        if self.connection_probe_job:
+            self.connection_probe_job.finished.connect(self.connection_probe_job.deleteLater)
+
+    def prepare_adapter(self):
+        if (self.running or self.manual_worker is not None or self.pause_manual_active or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning()) or
+            not self.network_setup_candidates):
+            return
+        candidates = self.network_setup_candidates
+        selected = self.psu_interface.currentText().strip()
+        if selected not in candidates:
+            if len(candidates) != 1:
+                QMessageBox.information(
+                    self, 'Choose an adapter',
+                    'More than one unconfigured Ethernet adapter was detected. '
+                    'Select the correct interface in the Interface field and try again.')
+                return
+            selected = candidates[0]
+        answer = QMessageBox.question(
+            self, 'Prepare Ethernet adapter?',
+            f'Configure {selected} with a dedicated automatic link-local IPv4 '
+            'connection through NetworkManager?\n\n'
+            'This changes the computer’s configuration, not the PSU. '
+            'It will create a persistent CPX400DP-specific connection. '
+            'NetworkManager may request your system password.\n\n'
+            'The action is refused if the adapter already has an IPv4 address '
+            'or an active NetworkManager connection. Other adapters are untouched.',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        self.prepare_adapter_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.manual_connect_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+        self.connection_message.setText(f'Preparing {selected} with NetworkManager…')
+        self.adapter_setup_job = AdapterSetupJob(selected, self)
+        self.adapter_setup_job.completed.connect(self.adapter_setup_finished)
+        self.adapter_setup_job.start()
+
+    def adapter_setup_finished(self, success, detail):
+        self.test_connection_btn.setEnabled(True)
+        self.manual_connect_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.start_btn.setEnabled(bool(self.profile and self.preview_path) and not self.running)
+        if success:
+            self.network_setup_candidates = []
+            self.prepare_adapter_btn.setEnabled(False)
+            self.connection_message.setText(
+                f'NetworkManager configured {detail}. The instrument may need '
+                'approximately 30 seconds to finish Auto-IP setup. '
+                'Click Test connection again to identify it.')
+            try:
+                from cpx400dp_discovery import interfaces
+                for iface in interfaces():
+                    if self.psu_interface.findText(iface) < 0:
+                        self.psu_interface.addItem(iface)
+            except OSError:
+                pass
+        else:
+            self.connection_message.setText('Adapter setup failed or was declined: ' + detail)
+            self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
+        if self.adapter_setup_job:
+            self.adapter_setup_job.finished.connect(self.adapter_setup_job.deleteLater)
 
     def choose_output_directory(self):
         if self.running or (self.preview_job and self.preview_job.isRunning()):
@@ -729,6 +889,8 @@ class Window(QMainWindow):
         if self.running or (self.preview_job and self.preview_job.isRunning()):
             return
         self.profile = Path(path).resolve()
+        self.settings.setValue('last_profile_directory', str(self.profile.parent))
+        self.settings.sync()
         # A newly selected profile must never inherit the previous run's
         # measurements, restoration badges, or completed progress indicator.
         self.clear_previous_run_display()
@@ -983,7 +1145,9 @@ class Window(QMainWindow):
             self.pause_socket_path = None
 
     def start_run(self):
-        if self.running or not self.profile or self.manual_worker is not None:
+        if (self.running or not self.profile or self.manual_worker is not None or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
             return
         try:
             require_files(HERE)
@@ -1354,6 +1518,12 @@ class Window(QMainWindow):
                 self, 'Experiment still running',
                 'Keep the GUI open until restoration and LOCAL have completed.\n'
                 'Use Stop (safe cleanup) and wait for the runner to finish.')
+            event.ignore()
+            return
+        if ((self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
+            QMessageBox.information(self, 'Network setup in progress',
+                                    'Complete the connection check or adapter setup before closing.')
             event.ignore()
             return
         if self.preview_job and self.preview_job.isRunning():
