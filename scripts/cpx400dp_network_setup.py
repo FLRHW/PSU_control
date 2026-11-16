@@ -179,6 +179,35 @@ def overlapping_ipv4_routes(*, runner=subprocess.run):
     return sorted(collisions)
 
 
+
+def instrument_route_summary(host, expected_interface=None, *, runner=subprocess.run):
+    """Read-only Linux effective route for a known IPv4 instrument address.
+
+    The connected-route table alone does not show which of two overlapping
+    link-local routes wins. A host-specific /32 may resolve that ambiguity.
+    Never run route 'replace', NetworkManager or a socket probe here.
+    """
+    try:
+        address = ipaddress.IPv4Address(host)
+    except (ValueError, ipaddress.AddressValueError):
+        return 'Cannot inspect instrument route: enter a valid PSU IPv4 address.'
+    proc = runner(['ip', '-j', '-4', 'route', 'get', str(address)],
+                  capture_output=True, text=True, check=True, timeout=4)
+    entries = json.loads(proc.stdout)
+    if not isinstance(entries, list) or not entries:
+        return f'No effective IPv4 route reported for {address}.'
+    route = entries[0]
+    nic = route.get('dev') or 'unknown interface'
+    source = route.get('prefsrc') or route.get('src') or 'unknown source'
+    message = f'Effective route to PSU {address}: {nic} (source {source}).'
+    if expected_interface and expected_interface != nic:
+        message += (f' WARNING: selected adapter {expected_interface} is not '
+                    'the normal system route. The application may bind its '
+                    'own socket to the selected adapter, but other tools '
+                    'using automatic routing can reach the wrong port.')
+    return message
+
+
 def network_route_summary(*, runner=subprocess.run):
     """Human-readable, diagnostic-only warning for overlapping IPv4 routes."""
     collisions = overlapping_ipv4_routes(runner=runner)
