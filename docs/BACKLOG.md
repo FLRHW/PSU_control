@@ -22,8 +22,25 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   automatic PSU IP configuration.
 - [x] Reopen CSV chooser in last-used profile folder, else project `profiles/`
   directory, else home.
-- [ ] **Hardware-validate** dock-to-PSU link and verify read-only identity;
-  confirm behaviour alongside Rigol directly connected via a different port.
+- [x] **Hardware-validate read-only** dock-to-PSU `*IDN?` identification
+  (2026-11-16: THURLBY THANDAR, CPX400DP, serial 446696, fw 2.00-4.06;
+  `169.254.51.7` via `enx0c3796303396`). This does not validate
+  control/restore or a persistent NetworkManager profile.
+- [x] Avoid *IDN? probe-then-reconnect for actual runner and standalone
+  Manual Control; retain the exact successfully identified TCP connection.
+  Offline regression tested; on-hardware verification still needed.
+- [ ] **Hardware-validate** retained-socket runner and Manual Control startup,
+  original-state snapshot, cleanup and `LOCAL`-last.
+- [ ] **Simultaneous-instrument coexistence:** capture evidence with DSRemote
+  open/connected while the CPX400DP GUI is idle, read-only testing, and running
+  an instrument test. Correct interface routes MUST remain in place; opening
+  the GUI by itself must not affect Rigol waveform acquisition. Do not infer
+  software interference from correlation without discriminating tests.
+- [ ] Support persistent non-overlapping routes or explicitly managed
+  host-specific routes for separate directly connected Auto-IP instruments.
+  Protect existing working Rigol/Wi-Fi interfaces; get permission before OS
+  changes. The user's temporary /32 Rigol route currently masks a real
+  overlapping 169.254/16 route conflict.
 - [ ] Confirm a new NetworkManager direct-connection profile survives reboot
   and avoids requiring Linux networking commands; check it never disrupts
   existing Wi-Fi, Rigol or other network services.
