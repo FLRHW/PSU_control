@@ -820,7 +820,7 @@ class Window(QMainWindow):
             if host:
                 interface = self.psu_interface.currentText().strip()
                 expected = None if interface in ('', 'Auto') else interface
-                result += '\\n' + instrument_route_summary(host, expected)
+                result += '\n' + instrument_route_summary(host, expected)
         except (OSError, ValueError) as exc:
             result = 'Unable to inspect IPv4 routes: ' + str(exc)
         self.connection_message.setText(result)
