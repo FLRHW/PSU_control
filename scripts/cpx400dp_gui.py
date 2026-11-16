@@ -141,6 +141,8 @@ class Window(QMainWindow):
         self.success_summary = False
         self.experiment_health_failed = False
         self.run_summary = ''
+        self.connection_not_established = False
+        self.connection_not_established = False
         self.final_states = {}
         self.last_phase = ''
         self.measurement_log = None
@@ -1261,6 +1263,10 @@ class Window(QMainWindow):
 
     def handle_line(self, line):
         self.append_console(line)
+        if line.startswith('[CONNECTION NOT ESTABLISHED]'):
+            self.connection_not_established = True
+            self.status.setText('PSU connection failed — profile not started')
+            self.phase_label.setText('Phase: Connection failed — no profile commands')
         if line.startswith('[PAUSE MANUAL STATE] '):
             try:
                 data = json.loads(line.partition('] ')[2])
@@ -1491,7 +1497,17 @@ class Window(QMainWindow):
         elif kind == 'stopped':
             self.phase_label.setText('Phase: Stopped — cleanup complete')
         else:
-            if exit_code == 2 and self.success_summary:
+            if self.connection_not_established:
+                self.status.setText('PSU connection failed — profile not started')
+                self.phase_label.setText('Phase: Connection failed — no profile commands')
+                QMessageBox.warning(
+                    self, 'PSU connection failed',
+                    'The runner could not establish a verified control connection.\\n'
+                    'No profile commands were issued and no PSU restoration was needed '
+                    'by this attempt.\\n\\n'
+                    'Check the Run output for the connection error. '
+                    'If another application controls the PSU, disconnect it first.')
+            elif exit_code == 2 and self.success_summary:
                 self.status.setText('OUTPUT FAULT — cleanup verified; inspect PSU before retrying')
                 self.phase_label.setText('Phase: Output fault / restored')
                 QMessageBox.warning(self, 'Output fault — restoration verified',
