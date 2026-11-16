@@ -9,6 +9,29 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Network settings dialog hardware acceptance — PASS (2026-11-16)
+
+- User pulled the PyQt5 `QDialog` import correction; the GUI launched
+  successfully and the new `Network settings…` dialog looked correct.
+- **Live physical test passed:** with PSU IPv4 field initially blank,
+  pressing **Test connection** discovered the Thurlby Thandar CPX400DP,
+  serial `446696`, firmware `2.00-4.06`, at `169.254.51.7` via
+  Dell D6000 interface `enx0c3796303396`. The GUI populated the
+  verified IP automatically and displayed `Test socket closed;
+  profile not started`. The dialog's full IP and interface were
+  readable and the layout was user-approved.
+- **Scope:** network dialog opening, visibility, automatic discovery,
+  auto-filled verified address, and read-only temporary TCP test are
+  **hardware/UI validated**. Adapter preparation/NetworkManager
+  persistence, post-reboot operation and competing 169.254/16 routes
+  are **not validated**. No new profile run was necessary because
+  the prior retained-socket 10.csv hardware test passed.
+- **Next priority:** safe persistent configuration for separate direct
+  Ethernet instruments, preserving both Rigol and PSU connectivity.
+  Consider replacing the blank IP placeholder with an explicit
+  `Automatic discovery` indication. Do not change network routes
+  without explicit approval.
+
 ## Network dialog PyQt5 startup regression — fixed (2026-11-16)
 
 - **Hardware/UI failure reported:** After syncing `dev` to commit
