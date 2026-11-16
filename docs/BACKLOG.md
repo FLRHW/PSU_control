@@ -49,23 +49,27 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   Kubuntu after PyQt5 QDialog import fix. User confirmed layout is fine;
   blank IP auto-discovered live PSU 169.254.51.7 via D6000 and
   auto-populated the verified address. No profile run was needed.
-- [ ] **Profile Runner toolbar layout:** move the existing **Network
-  settings…** button to the right of the read-only Profile duration
-  box (same top-right toolbar row); remove its dedicated row from the
-  left selector column to recover vertical space for profile plots.
-  Retain the working separate network dialog and shared IP/interface
-  controls, with no changes to instrument connection behaviour.
-- [ ] **Profile preview output-state HOLD messaging:** keep the
-  safety-relevant information, but remove the visually intrusive
-  text currently occupying the top toolbar's second row. Display
-  channel enable/HOLD behaviour in a clear, compact profile-details
-  location or contextual warning. Source:
-  `cpx400dp_gui.py::preview_ready()`:
-  `CHx initially HOLD` means first enable command occurs after t=0;
-  `CHx HOLD: initial output state retained` means no explicit
-  enable commands exist for that channel. Never silently imply that
-  HOLD means OFF; the actual initial state is read from the PSU
-  immediately before a run.
+- [x] **Profile Runner toolbar layout (offline-tested):** moved
+  **Network settings…** immediately to the right of the Profile
+  duration field, removing the dedicated row and freeing vertical
+  space. Existing dialog/connection behaviour unchanged.
+  User visual acceptance of the new placement is still pending.
+- [x] **Remove preview HOLD messaging altogether:** per user request,
+  removed the HOLD and OFF-throughout warning text and its dedicated
+  informational label from the Profile Runner toolbar. No output
+  enable state, CSV interpretation, snapshot or restoration logic
+  changed. Existing GUI status and console report profile errors.
+- [x] **Read-only route-conflict audit (offline-tested):** Network
+  settings now has **Inspect routes**, which checks OS IPv4 routes for
+  overlapping subnets on separate interfaces, ignores /32 host-route
+  exceptions and only displays findings. No route, address or
+  NetworkManager changes occur.
+- [ ] **User-approved persistent networking:** inspect existing
+  NetworkManager profiles and routes, propose a safe configuration for
+  directly connected instruments (including the externally configured
+  D6000 dock), and explicitly preserve Rigol, Wi-Fi and other
+  active connections. A read-only overlap audit is complete; migration
+  and persistent routing remain planned and NOT hardware-tested.
 - [ ] **Usability polish:** consider showing `Automatic discovery` explicitly
   when the PSU IP field is blank; the current auto-population on successful
   discovery is working and hardware-verified.
