@@ -9,6 +9,34 @@
 
 > This file is a compact start-of-session index. For full technical architecture, safety invariants and historic test evidence read [PROJECT_HANDOVER.md](PROJECT_HANDOVER.md). For milestones read [RELEASE_v13_5.md](RELEASE_v13_5.md) and previous release notes.
 
+## Powered-off versus powered-on Rigol route check (2026-11-16)
+
+- **User GUI validation:** HOLD preview text absent and compact toolbar
+  accepted after syncing latest `dev`.
+- **Physical observation:** With the Rigol powered OFF, pressing
+  **Inspect routes** displayed "No overlapping IPv4 network routes
+  found." The user then supplied an updated screenshot after powering
+  the Rigol ON, indicating that the route audit must be interpreted
+  with link/device state. The two direct Ethernet networks have
+  previously produced overlapping `169.254.0.0/16` routes and
+  misrouted traffic; the temporary explicit Rigol host route was
+  successful. **No persistent fix or reboot verification yet.**
+- **Code safety improvement (offline tested):** `setup_ethernet_link_local`
+  now refuses to create a new link-local profile if an existing
+  different interface has a conflicting active IPv4 network route.
+  `network_route_summary` now explains that a no-overlap report is
+  only a snapshot and recommends checking with all instruments
+  attached. This may also refuse legitimate multi-instrument setups
+  until an explicitly reviewed persistent routing solution exists;
+  this conservative refusal is intentional.
+- **CI PASS:** [run #43960100687](https://github.com/FLRHW/PSU_control/actions/runs/43960100687),
+  code commit `51da112222721764480592a9c0cb2af671929a0d`:
+  **134 tests run; 132 passed, 2 skipped**, no failures.
+- **Next:** no OS changes or reboot yet. Require an explicit
+  user-authorised persistent design protecting Rigol, dock and Wi-Fi;
+  verify both powered-up routes and connection tests following
+  configuration. `main` remains v13.5.
+
 ## Current v13.6 increment — user-requested layout and route audit (2026-11-16)
 
 - **Implemented on `dev`:** Removed all Profile Runner
