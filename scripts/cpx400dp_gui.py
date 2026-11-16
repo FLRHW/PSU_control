@@ -217,15 +217,15 @@ class Window(QMainWindow):
         dialog_heading.setStyleSheet('font-size: 17px; font-weight: 650;')
         dialog_layout.addWidget(dialog_heading)
         dialog_hint = QLabel(
-            'Leave IP and Interface on Auto for automatic discovery. '
+            'Leave PSU IPv4 blank to use the profile CSV address first, then automatic discovery. '
             'Testing sends only *IDN? and closes its temporary connection.')
         dialog_hint.setWordWrap(True)
         dialog_layout.addWidget(dialog_hint)
         connection_row = QHBoxLayout()
         connection_row.addWidget(QLabel('PSU IPv4:'))
         self.psu_ip = QLineEdit()
-        self.psu_ip.setPlaceholderText('Auto (CSV address first)')
-        self.psu_ip.setToolTip('Optional IPv4 override; blank uses the address in the CSV.')
+        self.psu_ip.setPlaceholderText('CSV address / automatic discovery')
+        self.psu_ip.setToolTip('Optional IPv4 override. Blank: use the profile CSV address first, then search for the PSU if needed.')
         self.psu_ip.setMinimumWidth(230)
         connection_row.addWidget(self.psu_ip, 2)
         connection_row.addWidget(QLabel('Interface:'))
