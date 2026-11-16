@@ -20,17 +20,12 @@ CACHE = Path.home() / '.config' / 'cpx400dp' / 'last_psu.json'
 
 
 def interfaces():
-    """Return active non-loopback IPv4 interfaces via iproute2 (already on Linux)."""
+    """Return active Ethernet devices, including dock adapters without IPv4."""
+    from cpx400dp_network_setup import adapter_details
     try:
-        result = subprocess.run(['ip', '-j', '-4', 'addr', 'show', 'up'],
-                                capture_output=True, text=True, check=True, timeout=3)
-        info = json.loads(result.stdout)
+        return {item['name']: item['ipv4'] for item in adapter_details()}
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         raise OSError('Cannot enumerate Ethernet interfaces using iproute2: ' + str(exc)) from exc
-    return {item['ifname']: [a['local'] for a in item.get('addr_info', [])
-                              if a.get('family') == 'inet']
-            for item in info if item.get('ifname') != 'lo' and
-            item.get('addr_info') and item.get('operstate') != 'DOWN'}
 
 
 def arp_candidates():
@@ -78,6 +73,15 @@ def connect_on(host, interface, timeout=0.65):
                 raise OSError('Interface binding requires Linux SO_BINDTODEVICE')
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE,
                             interface.encode('ascii') + b'\0')
+        if interface and ipaddress.IPv4Address(host).is_link_local:
+            # SO_BINDTODEVICE selects the NIC, but source selection can still
+            # use another NIC's 169.254 address when subnets overlap.
+            source = next((addr for addr in interfaces().get(interface, [])
+                           if ipaddress.IPv4Address(addr).is_link_local), None)
+            if source is None:
+                raise OSError(f'Network adapter {interface} has no link-local IPv4 address; '
+                              'use guided network setup')
+            sock.bind((source, 0))
         sock.connect((host, PORT))
         return sock
     except Exception:
@@ -194,14 +198,17 @@ def discover(last_host=None, preferred_interface=None, *, mdns=True,
     """
     links = interfaces()
     if preferred_interface and preferred_interface not in links:
-        raise ValueError(f'Interface {preferred_interface!r} is not active with IPv4')
+        raise ValueError(f'Network adapter {preferred_interface!r} is not active')
+    if preferred_interface and not links[preferred_interface]:
+        raise ValueError(f'Network adapter {preferred_interface!r} has no IPv4 address; '
+                         'use guided network setup')
     saved = cache_read()
     neighbours = arp_candidates()
     pairs = []
     def add(host, iface):
-        if iface in links and (host, iface) not in pairs:
+        if iface in nics and (host, iface) not in pairs:
             pairs.append((host, iface))
-    nics = [preferred_interface] if preferred_interface else list(links)
+    nics = [preferred_interface] if preferred_interface else [nic for nic, addresses in links.items() if addresses]
     # Explicit CSV/GUI address takes precedence over cached discovery state.
     if last_host:
         for nic in nics:
@@ -249,7 +256,8 @@ def connect_psu(last_host, preferred_interface=None, *, discover_enabled=True):
     if not devices:
         raise ConnectionError(
             'CPX400DP not found on active interfaces (attempted cached address, '
-            'CSV address, ARP neighbours and mDNS). Check LAN and select IP/interface manually.')
+            'CSV address, ARP neighbours and mDNS). Check instrument power/cabling, '
+            'or use Test connection to diagnose an unconfigured Ethernet adapter.')
     if len(devices) > 1:
         # Explicit preferred address wins, otherwise refuse ambiguous selection.
         chosen = [d for d in devices if d[0] == last_host and
