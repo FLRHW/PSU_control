@@ -50,7 +50,7 @@ from cpx400dp_gui_core import (
 from cpx400dp_preview import profile_summary, generate_preview
 from cpx400dp_manual import ManualWorker
 from cpx400dp_network_setup import (diagnose_connection, setup_ethernet_link_local,
-                                     network_route_summary)
+                                     network_route_summary, instrument_route_summary)
 
 HERE = Path(__file__).resolve().parent
 
@@ -814,6 +814,13 @@ class Window(QMainWindow):
             return
         try:
             result = network_route_summary()
+            # Show the actual kernel decision for the known PSU address, not
+            # merely whether broad /16 routes overlap. Read-only.
+            host = self.psu_ip.text().strip()
+            if host:
+                interface = self.psu_interface.currentText().strip()
+                expected = None if interface in ('', 'Auto') else interface
+                result += '\\n' + instrument_route_summary(host, expected)
         except (OSError, ValueError) as exc:
             result = 'Unable to inspect IPv4 routes: ' + str(exc)
         self.connection_message.setText(result)
