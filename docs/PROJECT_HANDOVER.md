@@ -23,6 +23,20 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## Network settings dialog real-device acceptance — PASS (2026-11-16)
+
+After PyQt5 import fix, user launched the revised GUI and inspected
+the Network settings dialog: layout readable, IPv4 field fully visible.
+The user left the PSU IPv4 field blank; pressing **Test connection**
+identified `THURLBY THANDAR, CPX400DP, 446696, 2.00-4.06` at
+`169.254.51.7` via `enx0c3796303396`, auto-populated the
+verified IP and confirmed `Test socket closed; profile not started`.
+The user states the dialog is fine. This physically validates the
+new dialog's read-only discovery/user workflow, but **does not**
+validate persistent NetworkManager setup, interface renaming, reboot
+behaviour or longer coexistence tests. No manual networking change
+was requested by the dialog test.
+
 ## Network settings dialog import correction — 2026-11-16
 
 The user's actual Kubuntu GUI failed on launch with
