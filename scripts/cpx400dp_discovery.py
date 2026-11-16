@@ -175,6 +175,16 @@ def mdns_candidates(interface, timeout=0.5):
             if interface:
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE,
                              interface.encode('ascii') + b'\0')
+                # Select the local source for multicast as well as TCP,
+                # especially when multiple independent 169.254/16 links exist.
+                addresses = interfaces().get(interface, [])
+                source = next((a for a in addresses
+                               if ipaddress.IPv4Address(a).is_link_local), None)
+                if source is None and addresses:
+                    source = addresses[0]
+                if source:
+                    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF,
+                                 socket.inet_aton(source))
             s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
             s.sendto(query, ('224.0.0.251', 5353))
             deadline = time.monotonic() + timeout
