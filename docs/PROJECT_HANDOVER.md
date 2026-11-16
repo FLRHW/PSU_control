@@ -23,6 +23,24 @@ The first development increment replaces the former eagerly materialised `schedu
 - Risks: the last observed event may become stale without a transition; OFF forces UNKNOWN. The event register read clears events, so record nonzero values before clearing; never treat the indicator as a safety or protective-status guarantee. Real PSU tests must compare badge transitions with the front-panel display under safe resistive loads, including changing current limit and returning to CV.
 - Offline CI for this development increment: [run #43746631345](https://github.com/FLRHW/PSU_control/actions/runs/43746631345), 110 tests, 2 expected fixture-related skips, 0 failures. No v13.6 hardware validation yet; `main` remains on v13.5.
 
+## Network settings dialog import correction — 2026-11-16
+
+The user's actual Kubuntu GUI failed on launch with
+`NameError: name 'QDialog' is not defined` at
+`scripts/cpx400dp_gui.py:213`: PySide6 imports contained QDialog,
+but the PyQt5 fallback omitted it. Added QDialog to PyQt5.QtWidgets,
+plus an offline AST test checking both supported Qt import branches.
+GitHub Actions [#43926670863](https://github.com/FLRHW/PSU_control/actions/runs/43926670863)
+passed 128 tests (126 passed, 2 skipped); real GUI relaunch remains to
+be validated. No change to PSU commands, network routing or socket
+ownership.
+
+The Rigol hardware front-panel operates normally during DSRemote
+`screen_thread.cpp line 783` errors, including reproduction with PSU
+GUI closed. Investigate DSRemote waveform transfer/decoder/window
+handling and instrument Ethernet communication independently; root
+cause not yet established.
+
 ## v13.6 network settings dialog + independent Rigol incident (2026-11-16)
 
 **Code (offline-tested):** Profile Runner now uses one **Network
