@@ -1,5 +1,33 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Saved-profile inventory contradicts earlier NIC assignment
+
+User ran read-only `nmcli` checks on the M75q. Current inventory shows
+`Wired connection 2` UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126`
+**active on D6000** `enx0c3796303396` (NM state 100 connected),
+not on the Rigol NIC. Rigol `enp3s0f1` is NM state 30 disconnected,
+with no active connection. Wi-Fi `wlp4s0` is connected via its
+existing profile. The listing does not reveal whether the Rigol is
+powered or linked, the saved profile interface binding, or persisted
+IPv4 addresses/routes.
+
+**Safety correction to prior plan:** do NOT modify `Wired connection 2`
+to install the Rigol host route based on its name. The earlier report
+associated that name with the Rigol; its current UUID and binding must
+be independently verified before any configuration change. No
+NetworkManager modifications, interface activation, reboot, PSU
+commands, or code changes performed in this checkpoint.
+
+**Next read-only checks:** inspect UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126`
+for `connection.interface-name`, `802-3-ethernet.mac-address`,
+`ipv4.method`, `ipv4.addresses`, `ipv4.routes`,
+`ipv4.never-default`, `connection.autoconnect`; inspect
+`ip -br -4 addr`, `ip -4 route`, and `ip -4 route get` to both
+instruments. Determine physical carrier on `enp3s0f1` and whether
+another saved connection is available for it. Re-design as separately
+hardware-bound profiles with scoped rollback only after fresh
+evidence and explicit approval.
+
 ## 2026-11-17 — Both-instruments-on persistence assessment and reviewed proposal
 
 User repeated GUI **Assess persistence** with Rigol and PSU powered on.
