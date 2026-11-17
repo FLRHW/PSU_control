@@ -1,5 +1,36 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Saved D6000 PSU profile activation hardware PASS
+
+User executed on Kubuntu:
+- Disabled autoconnect for the original unbound `Wired connection 2` UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126` (profile retained).
+- Enabled autoconnect for dedicated `CPX400DP-Direct` UUID `a6fa9a7a-e871-4752-8c85-60e4000fe42a`.
+- Successfully activated new UUID using `nmcli connection up ... ifname enx0c3796303396`.
+
+User verification:
+- D6000 `enx0c3796303396` UP, `192.168.71.1/24` **only**; former roaming `169.254.10.1/16` gone.
+- NetworkManager `GENERAL.CONNECTION=CPX400DP-Direct`,
+  state `100 (connected)`.
+- `ping -c 4 -I 192.168.71.1 192.168.71.2`: **4/4 replies**,
+  0% loss, 3.481 ms average. Instrument at static 192.168.71.2 responds.
+- Default route still `192.168.0.1` via Wi-Fi `wlp4s0`
+  (`192.168.0.252` source).
+- No PSU output or SCPI control tests performed in this step.
+
+**Status:** persistent **saved profile created and active, hardware network
+connectivity PASS**. Explicit profile reconnect, physical link reconnect,
+device/host reboot persistence, SCPI *IDN? and runner discovery on the new
+IP are **NOT YET VERIFIED**. Old profile remains present with autoconnect
+disabled for rollback; do not delete without a later housekeeping decision.
+
+**Next instructed test:** with PSU GUI idle, `nmcli connection down` then
+`nmcli connection up` the dedicated UUID on the dock, followed by
+active-profile/address/4-ping/default-route verification. This deliberately
+interrupts the Ethernet connection and must not be used while profiles
+are running. Thereafter proceed with independent Rigol static subnet
+migration. Keep `main` unaffected.
+
+
 ## 2026-11-17 — Dedicated PSU NM profile created; activation still pending
 
 User completed backup directory and output snapshot
