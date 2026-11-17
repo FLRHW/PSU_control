@@ -1,5 +1,30 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Rigol new static IPv4 physically reachable (PASS)
+
+User configured DS1054Z LAN settings and reported sourced ping
+`ping -c 4 -I 192.168.70.1 192.168.70.2`: **4/4 replies,
+0% packet loss**, RTT min/avg/max 0.184/0.257/0.412 ms,
+TTL 255. This validates scope network reachability at
+`192.168.70.2` from built-in Ethernet host
+`192.168.70.1`. It does not by itself prove instrument
+settings' power-cycle persistence, SCPI/waveform capture,
+DSRemote reliability, or end-to-end software behaviour.
+
+At previous checkpoint, `Rigol-Direct` UUID
+`6b03df6c-928c-4b8f-b646-43146b8ca419` was manually
+activated, but `connection.autoconnect=no` was retained from
+initial staging. **Next instruction (not yet completed):**
+enable autoconnect on that exact UUID, explicitly cycle NM
+down/up on `enp3s0f1` with applications closed, then verify
+both scope `192.168.70.2` and PSU `192.168.71.2`
+sourced pings, active profiles and unchanged Wi-Fi default.
+Keep unrelated profiles unchanged. PSU dedicated connection
+already passed down/up test. Later test physical link restart
+and host/instrument reboot plus instrument application discovery
+on fixed addresses. No code changes this checkpoint.
+
+
 ## 2026-11-17 — Dedicated Rigol PC-side NM profile activated and route validated
 
 User created `Rigol-Direct` UUID
