@@ -1,5 +1,64 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Long-run runtime storage warnings, recording audit and examples
+
+Per user instruction, continued offline-only `dev` development
+without asking for routine tests. No PSU network, SCPI, output,
+restoration, LOCAL or Rigol source changes.
+
+**Implemented in source:**
+- `scripts/cpx400dp_storage.py`: added `DiskSpaceMonitor`.
+  Checks output volume free bytes read-only and at most once per
+  30 seconds. Prints advisory `[STORAGE WARNING]` at/below
+  a 512 MiB reserve, repeating no more often than once per
+  five minutes. Probe errors suppress warnings instead of
+  interfering with PSU work. The monitor cannot reserve space,
+  detect all disk failure modes or guarantee successful CSV writes.
+- `scripts/cpx400dp_run_enhanced.py`: instantiated monitor
+  within `execute` and checks during heartbeat paths; it emits
+  messages only and never changes setpoints, stops the profile,
+  changes outputs, disables current safeguards or changes
+  restoration/LOCAL-last code.
+- `scripts/cpx400dp_recording_audit.py`: read-only streaming
+  inspector for CSV files or a results directory. Summarises
+  observed readbacks, missing final/LOCAL event markers, interrupts,
+  fault events, last timestamp, and explicitly marked synthetic
+  files. Never contacts hardware or deletes/edits recordings.
+  Even an apparently complete log does not prove physical
+  outputs or LOCAL.
+- `profiles/examples/long_24h_step_preview.csv` (24h, 5
+  keyframes, one channel), `long_7d_linear_preview.csv`
+  (7d, 8 keyframes, both channels), and
+  `long_1000h_sparse_preview.csv` (1000h, 11 keyframes,
+  two channels). All include enable=0 across their keyframes
+  and restore=true; preview-only, not authorised unattended runs.
+- A ZIP was generated for the user with all three sample
+  profiles, README, and an offline-only synthetic 1000-hour
+  measurement CSV of about 120,000 readbacks and a 50 ms
+  synthetic transient near second 3,599,950.05. The large
+  fictional CSV is not committed to GitHub. Its simulated
+  `final_state_verified` and `local_sent` records must never
+  be mistaken for real hardware validation.
+
+**Regression tests:** new long-examples parser test, new
+recording-audit classification tests, expanded storage monitor
+tests. GitHub CI must be checked after final commit; don't
+claim unobserved hardware acceptance.
+
+**Limitations and next work:** no automatic deletion,
+log retention policy or crash-safe resume. Existing disk-full
+CSV writer exceptions could still interfere with cleanup logging;
+must design dedicated safety-aware failure behaviour before
+unattended endurance claims. This change provides monitoring
+and post-run evidence inspection, not proof that an interrupted
+PSU automatically reaches a safe electrical state. Use local
+front panel inspection after unplanned shutdown. See
+`docs/RECORDING_RECOVERY.md` and
+`profiles/examples/README.md`.
+
+User local untracked `profiles/18.csv` remains untouched.
+
+
 ## 2026-11-17 — Final streaming-report CI acceptance
 
 **PASS:** GitHub Actions CPX400DP offline regression run
