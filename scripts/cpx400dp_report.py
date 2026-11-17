@@ -9,6 +9,7 @@ import csv
 import html
 import json
 import math
+from cpx400dp_report_stream import generate as generate_stream
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +22,14 @@ def num(row, field):
         return None
 
 
-def generate(log_file, layout='separate', profile=None):
+def generate(log_file, layout='separate', profile=None, *, force_stream=False):
+    # Small runs retain the original single-file report unchanged. Large logs
+    # need a bounded-memory two-pass parser and local on-demand detail chunks.
+    # The threshold is based on CSV byte size, avoiding an expensive row-count
+    # pass before choosing which reporting path to use.
+    if force_stream or Path(log_file).stat().st_size >= 8 * 1024 * 1024:
+        return generate_stream(log_file, layout=layout, profile=profile)
+
     if layout not in ('separate', 'combined', 'power'):
         raise ValueError('Unsupported initial report layout')
     log_file = Path(log_file)
@@ -380,5 +388,7 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('measurements',type=Path)
     parser.add_argument('--layout',choices=['separate','combined','power'],default='separate',help='Initial checkbox selection for compatibility')
+    parser.add_argument('--stream', action='store_true',
+                        help='Force large-log streaming report and companion detail chunks')
     opts=parser.parse_args()
-    print(generate(opts.measurements,opts.layout))
+    print(generate(opts.measurements, opts.layout, force_stream=opts.stream))
