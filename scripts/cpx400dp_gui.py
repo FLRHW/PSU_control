@@ -43,6 +43,7 @@ except ImportError:
             'Then run with: /usr/bin/python3 cpx400dp_gui.py\n'
             'Alternatively install PySide6 in the Python environment you use.')
 
+from cpx400dp_network_preflight import persistence_preflight
 from cpx400dp_gui_core import (
     require_files, embedded_preview_plots, parse_progress, parse_report_path,
     parse_heartbeat, parse_final_verification, classify_run
@@ -113,6 +114,22 @@ class AdapterSetupJob(QThread):
         self.completed.emit(True, profile)
 
 
+class PersistencePreflightJob(QThread):
+    """Observe current Linux routing and NM state without changing either."""
+    completed = Signal(str)
+
+    def __init__(self, host, parent=None):
+        super().__init__(parent)
+        self.host = host
+
+    def run(self):
+        try:
+            result = persistence_preflight(self.host)
+        except Exception as exc:
+            result = 'Network persistence preflight unavailable: ' + str(exc)
+        self.completed.emit(result)
+
+
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -128,6 +145,7 @@ class Window(QMainWindow):
         self.preview_job = None
         self.connection_probe_job = None
         self.adapter_setup_job = None
+        self.persistence_preflight_job = None
         self.network_setup_candidates = []
         self.preview_path = None
         self.report_path = None
@@ -261,6 +279,11 @@ class Window(QMainWindow):
             'Read-only check for conflicting routes across Ethernet adapters')
         self.inspect_routes_btn.clicked.connect(self.inspect_network_routes)
         dialog_actions.addWidget(self.inspect_routes_btn)
+        self.preflight_btn = QPushButton('Assess persistence')
+        self.preflight_btn.setToolTip(
+            'Read-only inspection of current IPv4 routes and saved NetworkManager profiles')
+        self.preflight_btn.clicked.connect(self.assess_network_persistence)
+        dialog_actions.addWidget(self.preflight_btn)
         dialog_actions.addStretch()
         dialog_layout.addLayout(dialog_actions)
 
@@ -804,6 +827,43 @@ class Window(QMainWindow):
         if self.profile and not self.running:
             self.clear_previous_run_display()
             self.preview_debounce.start()
+
+    def assess_network_persistence(self):
+        # Network commands run on a worker thread. This read-only operation
+        # does not require any PSU socket and is safe while the GUI is idle.
+        if self.persistence_preflight_job is not None:
+            return
+        self.preflight_btn.setEnabled(False)
+        self.connection_message.setText(
+            'Inspecting current addresses, routes and NetworkManager profiles (read-only)…')
+        self.persistence_preflight_job = PersistencePreflightJob(
+            self.psu_ip.text().strip() or None, self)
+        self.persistence_preflight_job.completed.connect(self.persistence_preflight_finished)
+        self.persistence_preflight_job.finished.connect(self.persistence_preflight_done)
+        self.persistence_preflight_job.start()
+
+    def persistence_preflight_finished(self, report):
+        dialog = QDialog(self.network_dialog)
+        dialog.setWindowTitle('Network persistence assessment — read-only')
+        dialog.resize(780, 510)
+        layout = QVBoxLayout(dialog)
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        view.setPlainText(report)
+        layout.addWidget(view)
+        close_btn = QPushButton('Close')
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.exec() if hasattr(dialog, 'exec') else dialog.exec_()
+        self.connection_message.setText(
+            'Read-only persistence assessment completed. No network settings changed.')
+
+    def persistence_preflight_done(self):
+        job = self.persistence_preflight_job
+        self.persistence_preflight_job = None
+        self.preflight_btn.setEnabled(True)
+        if job is not None:
+            job.deleteLater()
 
     def inspect_network_routes(self):
         # A read-only, bounded local iproute2 query; no PSU socket or
