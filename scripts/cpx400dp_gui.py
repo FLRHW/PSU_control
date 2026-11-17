@@ -256,6 +256,19 @@ class Window(QMainWindow):
                 self.psu_interface.addItem(iface)
         except OSError:
             pass
+        # Restore only a previously verified destination; never probe on startup.
+        # Invalid/stale interface names fall back to Auto, not a blind binding.
+        saved_ip = str(self.settings.value('verified_psu_ip', '') or '').strip()
+        saved_iface = str(self.settings.value('verified_psu_interface', '') or '').strip()
+        try:
+            if saved_ip:
+                import ipaddress
+                ipaddress.IPv4Address(saved_ip)
+                self.psu_ip.setText(saved_ip)
+        except ValueError:
+            pass
+        if saved_iface and self.psu_interface.findText(saved_iface) >= 0:
+            self.psu_interface.setCurrentText(saved_iface)
         self.psu_interface.setMinimumWidth(230)
         self.psu_interface.setToolTip(
             'Optional network interface override; Auto checks active interfaces.')
@@ -936,6 +949,11 @@ class Window(QMainWindow):
             if self.psu_interface.findText(iface) < 0:
                 self.psu_interface.addItem(iface)
             self.psu_interface.setCurrentText(iface)
+            # Only persist a host/interface pair after a verified *IDN? probe.
+            # Never persist unverified typing or connection errors.
+            self.settings.setValue('verified_psu_ip', host)
+            self.settings.setValue('verified_psu_interface', iface)
+            self.settings.sync()
             self.connection_message.setText(f'✓ Identified {identity} at {host} via {iface}. '
                                             'Test socket closed; profile not started.')
         elif result.get('status') == 'multiple':
