@@ -1,5 +1,46 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Return to PSU v13.6: persist last verified GUI destination
+
+Per user direction, **do not modify the separate Rigol_capture project**.
+Reviewed `scripts/cpx400dp_gui.py` on `dev`: GUI already used
+`QSettings('CPX400DP', 'ControlGUI')` for output/profile paths, but
+the PSU IPv4 field and interface combo were recreated blank/Auto at
+each GUI startup, even after a successful **Test connection**. The
+discovery layer has a separate last-PSU cache, yet the GUI does not
+populate those widgets from it. This explains manual re-entry of
+`192.168.71.2`.
+
+**Source changes on dev:** in `Window.__init__`, read
+`verified_psu_ip` and `verified_psu_interface` from per-user
+QSettings; restore the address only if it passes IPv4 validation,
+and restore interface only if it is present in the currently
+enumerated combo. Missing interfaces fall back to Auto. No
+startup connection attempt, route change, or instrument command.
+In `connection_test_finished`, only for
+`result.status == 'found'`, save the successfully identified
+host/interface pair to QSettings and sync. A failed/ambiguous test
+does not overwrite the last verified pair. Manual typing alone does
+not persist without testing. Existing explicit IP override, CSV
+fallback when blank, discovery, socket ownership, power-control
+and restore/LOCAL semantics remain unchanged.
+
+Added `tests/test_v13_6_verified_destination.py` as offline AST
+regressions for restore, validation, success-only saving and
+unchanged override paths. Commits:
+`70e0e7f` implementation, `fc285949` tests,
+`d87fe19b` import cleanup.
+**Not yet hardware/UI validated.** Latest offline CI status
+must be checked against final dev commit before marking CI PASS.
+Next user validation: launch updated GUI, enter PSU address
+192.168.71.2 and select D6000, run read-only Test connection;
+close and reopen GUI and verify fields are prefilled with the
+same verified destination, without any automatic probe on startup.
+Test address edit or failed probe does not replace saved pair.
+Do not use profile-run or manual-control for this acceptance.
+
+
+
 ## 2026-11-17 — Rigol capture GUI verified after static-network migration (hardware/application PASS)
 
 User launched the separate `FLRHW/Rigol_capture` GUI on Kubuntu
