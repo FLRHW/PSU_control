@@ -1,5 +1,33 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Dedicated PSU NM profile created; activation still pending
+
+User completed backup directory and output snapshot
+`~/PSU_network_backup/old_ethernet_profile.txt` via
+`nmcli connection show` for original generic Ethernet profile
+UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126`.
+This is a text snapshot, **not** a complete restorable NM keyfile.
+A new saved Ethernet profile **CPX400DP-Direct** was created
+with UUID `a6fa9a7a-e871-4752-8c85-60e4000fe42a`;
+bound to interface `enx0c3796303396` and MAC
+`0c:37:96:30:33:96`; manual host IPv4
+`192.168.71.1/24`, never-default=yes, IPv6 disabled,
+autoconnect=no at creation. Profile listing confirms it is
+**inactive** and `Wired connection 2` is still active
+on the D6000. No NM profile switch or reboot yet.
+
+**User next action, explicitly directed:** with PSU GUI idle,
+disable autoconnect on old UUID (preserve profile), enable
+autoconnect on new UUID, activate new UUID specifically on
+D6000, and check resulting `ip -br -4 addr`, NM active
+connection, sourced ping to `192.168.71.2`, and Wi-Fi
+default route. If switching fails, recover via original UUID
+after restoring autoconnect; do not delete old profile.
+This step has NOT been reported as completed. No change
+to PSU output or software in this checkpoint. Static PSU
+IP and HTTP page were previously verified; reboot
+persistence not yet tested.
+
 ## 2026-11-17 — PSU static address and web interface validated
 
 User supplied screenshot of CPX400DP's live configuration page at the
