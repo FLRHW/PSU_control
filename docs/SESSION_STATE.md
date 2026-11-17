@@ -1,5 +1,29 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — PSU static address and web interface validated
+
+User supplied screenshot of CPX400DP's live configuration page at the
+new network configuration after successfully pinging 192.168.71.2
+from temporary host 192.168.71.1/24 via D6000 (4/4 ICMP replies).
+Screenshot shows DHCP unchecked, AUTO-IP unchecked, STATIC checked,
+IP 192.168.71.2, netmask 255.255.255.0, gateway 0.0.0.0,
+both DNS 0.0.0.0, TCP Socket Full Control. User reports the web
+interface loaded at new IP. This is physical verification of
+network connectivity and displayed static configuration, **not**
+yet SCPI *IDN? validation, instrument reboot persistence,
+NetworkManager reboot persistence, or PSU control validation.
+
+Next: establish a saved dedicated hardware-bound D6000 NM profile
+for host 192.168.71.1/24 (no gateway, never-default=yes), and ensure
+the unbound generic Wired connection 2 UUID
+4158f5eb-2e6b-3274-8f74-bb2a48c41126 cannot autoconnect to
+the wrong NIC. Back up existing NM configuration before changes,
+obtain authorization for profile writes, stage/activate in safe
+sequence with rollback. Wi-Fi unchanged. Once stable, set up Rigol
+on independent 192.168.70.0/24 with its own bound profile.
+The host currently relies on an **ephemeral** ip addr add; no saved
+NM profile migration or reboot test has passed yet.
+
 ## 2026-11-17 — First real static-IP PSU connectivity test PASS (temporary PC address)
 
 User verified `enx0c3796303396` holds both the old
