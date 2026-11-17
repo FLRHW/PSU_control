@@ -59,6 +59,8 @@ class StreamingReportTests(unittest.TestCase):
             doc = out.read_text(encoding="utf-8")
             self.assertIn("local detail chunks", doc)
             self.assertIn("Cursors: OFF", doc)
+            self.assertIn('class="jump-time"', doc)
+            self.assertIn('class="jump-span"', doc)
             self.assertIn("Full resolution: loaded local detail chunks.", doc)
             self.assertIn("COMPLETED", doc)
             self.assertIn("LOCAL command", doc)
