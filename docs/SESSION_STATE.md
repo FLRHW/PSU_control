@@ -1,5 +1,50 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — v13.6 long-run disk capacity advisory (source implemented)
+
+After successful address/interface persistence acceptance, resumed
+long-duration recording work as directed. Reviewed backlog:
+1,000-hour lazy scheduler and time-axis support already offline
+implemented, but report generation still uses whole-CSV loading and
+embedded full arrays; long-run disk monitoring remains incomplete.
+
+Added `scripts/cpx400dp_storage.py` with pure read-only
+`storage_forecast(output_path, duration_s, interval_s,
+readback_interval_s, channel_count)`. It uses filesystem free
+space at the measurement CSV destination, estimates an advisory
+budget of 512 bytes for each expected setpoint/readback CSV event
+across channels, plus 512 MiB of spare capacity. If the free
+capacity is below that forecast, emits `[STORAGE WARNING]`
+including rough budget/free/recommended capacity and clear
+statement that the run is **not blocked**. Invalid inputs or an
+unavailable disk probe suppress the advisory rather than
+alter the established instrument workflow.
+
+Integrated the call into `execute` in
+`scripts/cpx400dp_run_enhanced.py`, before measurement CSV
+open and before PSU socket/commands. No changes to profile
+scheduler or profile/Manual Control output commands, readbacks,
+restoration, or LOCAL-last safety behaviour. No network
+changes and no changes to separate Rigol capture repository.
+
+Added offline regressions in
+`tests/test_v13_6_storage_forecast.py` for sufficient/insufficient
+capacity, readback frequency sensitivity, invalid and unavailable
+probe conditions and runner insertion order.
+
+Commits include `f2d60a43` helper, `6336f5f6` runner,
+`efbd33ff` tests and backlog follow-up.
+**Source implemented, CI pending, NOT hardware validated.**
+This is intentionally a pre-run advisory only; it neither
+reserves space nor monitors disk mid-run, predicts exact
+measurement and HTML output sizes, or makes unattended
+1000-hour operation safe. Subsequent major task remains
+streaming/bounded report generation and robust runtime
+storage monitoring. User local untracked `profiles/18.csv`
+must be left untouched.
+
+
+
 ## 2026-11-17 — PSU GUI verified-destination persistence hardware/UI acceptance PASS
 
 User confirmed **both** the PSU IPv4 field and selected interface
