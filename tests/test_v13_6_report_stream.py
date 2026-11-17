@@ -83,7 +83,7 @@ class StreamingReportTests(unittest.TestCase):
             create_log(path, 9000)
             html_file = generate(path, force_stream=True)
             page = html_file.read_text(encoding="utf-8")
-            scripts = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", page, re.DOTALL)
+            scripts = re.findall(r"<script(?:\s[^>]*)?>(.*?)</script>", page, re.DOTALL)
             self.assertEqual(len(scripts), 2)
             script_path = Path(d) / "viewer.js"
             script_path.write_text(scripts[-1], encoding="utf-8")
