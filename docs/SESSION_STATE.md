@@ -1,5 +1,48 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Rigol capture GUI verified after static-network migration (hardware/application PASS)
+
+User launched the separate `FLRHW/Rigol_capture` GUI on Kubuntu
+after Rigol was configured at `192.168.70.2` on the independent
+`192.168.70.0/24` link. User supplied the capture console:
+
+```text
+Instrument verified: RIGOL TECHNOLOGIES,DS1054Z,DS1ZA221303251,00.04.04.SP4
+Network path: automatic system route
+CH2: 434/434 points (100.0%)
+CH2: wrote 434 of 434 acquired samples (decimate 1)
+CH2: exported 434 rows, saved spacing 0.002 s (original spacing 0.002 s)
+CH4: 714/714 points (100.0%)
+CH4: wrote 714 of 714 acquired samples (decimate 1)
+CH4: exported 714 rows, saved spacing 0.002 s (original spacing 0.002 s)
+Saved: /mnt/Data/01_Engineering/01_Projects/301_Rigol_DS1054Z/Rigol_capture/captures/rigol_scopech2ch4.csv
+Scope-relative timestamps only; no shared PC/PSU trigger timestamp.
+```
+
+**Validated by user-supplied console:** scope identity, automatic system
+route, acquisition completion for CH2 and CH4, no export decimation,
+2 ms sample spacing and CSV output. CH2 and CH4 returned different
+sample counts (434 and 714); do not presume cause without examining
+the separate Rigol_capture source, acquisition setup and CSV.
+This does NOT prove sustained deep-memory transport reliability,
+time synchronisation with PSU, or resolution of the independent
+DSRemote `screen_thread.cpp line 783` issue.
+
+Combined previous evidence: both dedicated NetworkManager profiles
+came up after user-confirmed Kubuntu reboot; each instrument replied
+4/4 to sourced pings; CPX400DP GUI read-only Test connection succeeded
+at `192.168.71.2`. Network migration and basic application
+connectivity are therefore **validated**, with any instrument-side
+power-cycle persistence still a separate check. Do not conflate
+Rigol_capture source with PSU_control. No new PSU software/code,
+instrument settings, or network changes in this checkpoint.
+
+**Next PSU_control focus:** return to v13.6 app work: inspect
+current `dev` GUI IP/discovery persistence behaviour before
+selecting a targeted usability improvement; run offline CI for
+code changes and have user validate hardware-only tests.
+
+
 ## 2026-11-17 — Host reboot persistence PASS; PSU GUI Test connection PASS
 
 User explicitly confirmed that the preceding dual-instrument `nmcli`,
