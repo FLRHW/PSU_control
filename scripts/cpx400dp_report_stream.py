@@ -467,7 +467,7 @@ function windowData(ch,start,end){
   }
   return {series,quality:'Full resolution: loaded local detail chunks.'};
 }
-function drawLine(svg,pts,color,axis,x,y,start,end){
+function drawLine(svg,pts,color,axis,x,y,start,end,mode,key,boundaries){
   const valid=pts.filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));
   if(!valid.length)return;
   const selected=[];
@@ -488,8 +488,24 @@ function drawLine(svg,pts,color,axis,x,y,start,end){
   for(const b of bins.values())for(const p of [...new Set(b)].sort((a,b)=>a[0]-b[0]))
     if(reduced[reduced.length-1]!==p)reduced.push(p);
   if(!reduced.length)return;
-  const d=reduced.map((p,i)=>(i?'L':'M')+x(p[0]).toFixed(2)+' '+y(axis,p[1]).toFixed(2)).join(' ');
-  add(svg,'path',{d,stroke:color,class:'trace', 'stroke-dasharray':(axis==='V'||axis==='A')?'':'none'});
+  const begin=boundaries.length?boundaries[0]:0;
+  const finish=boundaries.length>1?boundaries[1]:Infinity;
+  const stepped=(mode==='step'&&(key==='vs'||key==='cs'));
+  const d=reduced.map((p,i)=>{
+    const point=x(p[0]).toFixed(2)+' '+y(axis,p[1]).toFixed(2);
+    if(!i)return 'M'+point;
+    const prev=reduced[i-1];
+    if(stepped && p[0]>=begin && p[0]<finish &&
+       prev[0]>=begin && prev[0]<finish && p[1]!==prev[1]){
+       return 'L'+x(p[0]).toFixed(2)+' '+y(axis,prev[1]).toFixed(2)+'L'+point;
+    }
+    return 'L'+point;
+  }).join(' ');
+  add(svg,'path',{d,stroke:color,class:'trace',
+    'stroke-dasharray':(key==='vm'||key==='cm'||key==='p')?'6 4':'none'});
+  // Negative readbacks cannot be represented below the zero-anchored axis.
+  for(const p of reduced)if(p[1]<0 && p[0]>=start && p[0]<=end)
+    add(svg,'circle',{cx:x(p[0]),cy:y(axis,0),r:2.5,fill:color});
 }
 function render(view){
   const ch=view.ch,meta=DATA.meta[ch],svg=view.svg;
@@ -528,7 +544,7 @@ function render(view){
   for(const t of meta.boundaries)if(t>=start&&t<=end)add(svg,'line',{x1:x(t),x2:x(t),y1:T,y2:T+PH,stroke:'#8c94a1','stroke-dasharray':'4 4'});
   for(const [t,state] of meta.transitions)if(t>=start&&t<=end)add(svg,'line',{x1:x(t),x2:x(t),y1:T,y2:T+PH,stroke:'#176a4a','stroke-dasharray':'5 3'});
   for(const [t] of meta.pauses)if(t>=start&&t<=end)add(svg,'line',{x1:x(t),x2:x(t),y1:T,y2:T+PH,stroke:'#596a9b','stroke-dasharray':'5 3'});
-  for(const key of selected)drawLine(traces,got.series[key],COLORS[key],AXIS[key],x,y,start,end);
+  for(const key of selected)drawLine(traces,got.series[key],COLORS[key],AXIS[key],x,y,start,end,meta.mode,key,meta.boundaries);
   const axes=[['V',L-10],['A',L+PW+9],['W',L+PW+65]];
   for(const [axis,at] of axes){
     if(!selected.some(k=>AXIS[k]===axis))continue;
