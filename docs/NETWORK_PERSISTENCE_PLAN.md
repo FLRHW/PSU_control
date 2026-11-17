@@ -1,5 +1,36 @@
 # Two-instrument Ethernet persistence — proposed plan (NOT APPLIED)
 
+> **REVISED DIAGNOSIS — 2026-11-17: EARLIER COMMAND EXAMPLES ARE SUPERSEDED.**
+>
+> Saved profile `Wired connection 2` UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126`
+> has no interface-name or Ethernet MAC binding and autoconnect=yes. It is
+> **currently active on the D6000 PSU dock**, unexpectedly applying
+> `169.254.10.1/16` to `enx0c3796303396`, while the Rigol NIC
+> `enp3s0f1` has carrier but NM state disconnected and no IPv4.
+> Both instrument destinations currently route through the dock.
+> **DO NOT execute the old `nmcli connection modify "Wired connection 2"`
+> example as written**: the generic profile must first be explicitly
+> bound or otherwise prevented from roaming, with verified MAC identity,
+> UUID-based backup and a safe rollback. This document is still a
+> proposal and NO changes to the host have been applied.
+>
+> Updated design: establish **two distinct interface/MAC-bound Ethernet
+> profiles**, one for the built-in Rigol interface (host
+> `169.254.10.1/16`, Rigol destination `169.254.179.79/32`) and one
+> for the D6000 (host `169.254.51.8/16`, PSU destination
+> `169.254.51.7/32`); set never-default=yes and autoconnect=yes on
+> each; remove ambiguity from the generic roaming autoconnect profile;
+> preserve Wi-Fi and provide rollback by exact UUID. Check physical
+> interface MACs, any duplicate profiles, and current instrument Auto-IP
+> addresses before planning precise mutation/activation steps.
+>
+> **The subsequent 'Verified active topology' table is historical, NOT
+> the current runtime state.** Current observed state is as described
+> above; do not mistake the old Rigol profile association or dock host
+> address for verified current values. After authorization, validate
+> routes, read-only instrument identity, disconnect/reconnect, and reboot.
+> Unchanged Auto-IP assignments are an assumption, not a guarantee.
+
 **Status:** engineering proposal for explicit review, 2026-11-17.
 **Branch:** `dev`; **host OS changes:** NONE.
 **Scope:** Lenovo M75q / Kubuntu, direct Rigol DS1054Z and CPX400DP
