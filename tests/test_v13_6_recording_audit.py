@@ -42,10 +42,38 @@ class RecordingAuditTests(unittest.TestCase):
             p = Path(directory) / 'interrupted.csv'
             make(p, [('readback', '2', ''), ('interrupted', '', ''),
                      ('final_state_verified', '2', ''), ('local_sent', '', '')])
-            self.assertIn('INTERRUPTED', audit(p)['status'])
+            audited = audit(p)
+            self.assertIn('INTERRUPTED — LOGGED CLEANUP VERIFIED', audited['status'])
+            self.assertTrue(audited['cleanup_logged_after_interruption'])
             make(p, [('readback', '1', ''), ('output_fault_abort', '', ''),
                      ('final_state_verified', '1', ''), ('local_sent', '', '')])
-            self.assertIn('FAULT ABORT', audit(p)['status'])
+            self.assertIn('FAULT ABORT — LOGGED CLEANUP VERIFIED', audit(p)['status'])
+
+    def test_cleanup_must_follow_last_interruption_for_each_channel(self):
+        with tempfile.TemporaryDirectory() as directory:
+            p = Path(directory) / 'stale_cleanup.csv'
+            make(p, [('readback', '1', ''), ('readback', '2', ''),
+                     ('final_state_verified', '1', ''),
+                     ('final_state_verified', '2', ''),
+                     ('local_sent', '', ''), ('interrupted', '', '')])
+            found = audit(p)
+            self.assertIn('CLEANUP NOT CONFIRMED BY LOG', found['status'])
+            self.assertFalse(found['cleanup_logged_after_interruption'])
+            make(p, [('interrupted', '', ''),
+                     ('final_state_verified', '1', ''),
+                     ('local_sent', '', ''), ('readback', '2', '')])
+            self.assertIn('CLEANUP NOT CONFIRMED BY LOG', audit(p)['status'])
+            make(p, [('interrupted', '', ''),
+                     ('final_state_verified', '1', ''),
+                     ('final_state_verified', '2', ''),
+                     ('local_sent', '', '')])
+            self.assertTrue(audit(p)['cleanup_logged_after_interruption'])
+
+    def test_empty_log_reported_separately(self):
+        with tempfile.TemporaryDirectory() as directory:
+            p = Path(directory) / 'empty.csv'
+            p.write_text(','.join(FIELDS) + '\\n')
+            self.assertIn('EMPTY LOG', audit(p)['status'])
 
     def test_synthetic_data_never_claims_hardware_verification(self):
         with tempfile.TemporaryDirectory() as directory:
