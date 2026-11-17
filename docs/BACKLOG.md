@@ -1,12 +1,35 @@
 # CPX400DP development backlog
 
-**Updated:** 2026-11-16. **Branch:** `dev`. **Stable baseline:** v13.5 on `main`.
+**Updated:** 2026-11-17. **Branch:** `dev`. **Stable baseline:** v13.5 on `main`.
 
 This file separates planned enhancements from implemented work. No entry below
 is evidence of hardware validation. Priorities may be reordered only with
 explicit agreement; keep existing safety/restore behaviour unchanged.
 
-## Active priority: reliable network discovery and guided setup (v13.6)
+## Current focus: verified PSU address persistence (v13.6)
+
+- [x] **Source implemented:** GUI restores its last successfully verified
+  PSU IPv4 address and available interface from per-user QSettings on
+  startup, with no automatic network probe. Only a successful read-only
+  Test connection overwrites those saved values. Failed/ambiguous tests
+  and unverified manual typing do not overwrite them.
+  Offline structural regression added; CI and physical GUI acceptance
+  to be recorded separately.
+- [ ] **Hardware GUI acceptance:** after updating dev, Test connection
+  at `192.168.71.2` through D6000; close and relaunch and verify
+  address and interface prefill; no automatic PSU connection.
+- [x] **Dedicated static bench networks user-validated:** Rigol
+  `192.168.70.2` on built-in NIC `192.168.70.1`;
+  PSU `192.168.71.2` on D6000 `192.168.71.1`.
+  Both saved NetworkManager profiles reactivated after user-confirmed
+  Kubuntu reboot; both sourced pings succeeded, Wi-Fi default retained;
+  PSU GUI Test connection and Rigol capture GUI both passed.
+  No further Rigol capture work requested.
+- [ ] **Follow-up:** if no longer needed, retire/clarify the legacy
+  link-local Prepare adapter and overlapping 169.254/16 persistence
+  diagnostics without changing stable device control functionality.
+
+## Historical priority: reliable network discovery and guided setup (v13.6)
 
 - [x] **Documented two-instrument persistent networking proposal:**
   [NETWORK_PERSISTENCE_PLAN.md](NETWORK_PERSISTENCE_PLAN.md) records
