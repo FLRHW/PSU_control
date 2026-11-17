@@ -1,5 +1,53 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Manufacturer documentation verified; network option decision
+
+Reviewed the *CPX400DP Instruction Manual Issue 1*
+(https://resources.aimtti.com/manuals/CPX400DP_Instruction_Manual-Iss1.pdf),
+Aim-TTi's CPX Series firmware release notes
+(https://www.aimtti.com/resources/cpx-series-interface-firmware-file),
+and the Rigol DS1000Z User's Guide
+(https://www.batronix.com/pdf/Rigol/UserGuide/DS1000Z_UserGuide_EN.pdf).
+Do not presume implementation of every feature on the user's actual
+firmware without visual confirmation.
+
+**CPX400DP:** official manual's LAN section states DHCP first, Auto-IP
+after a 30 s DHCP timeout, configurable basic web server, and recessed
+rear-panel LAN RESET to restore factory networking. The current unit's
+*IDN? previously reported interface firmware **4.06**. Aim-TTi's
+release notes say v4.12 fixed intermittent LAN dropouts; v4.20 improved
+continuous-traffic robustness; and **v4.22 fixed the NETCONFIG,
+IPADDR and NETMASK remote commands**. Therefore do NOT use SCPI
+network-configuration writes on this v4.06 instrument. Prefer inspecting
+the supported web Configure page before attempting manual addressing.
+No firmware update is proposed as a prerequisite.
+
+**Rigol DS1054Z:** DS1000Z User's Guide, System Function Setting,
+LAN configuration pp. 14-3 to 14-5, explicitly documents DHCP,
+Auto IP and Static IP, editable IP/mask/gateway/DNS, Apply,
+Initialize recovery, and nonvolatile IP/mask storage; for power-on
+persistence Power-on Recall must be Last and DHCP/Auto IP off.
+
+**Tradeoffs:** Auto-IP needs no instrument configuration but two
+independent NICs sharing 169.254/16 create route ambiguity and changing
+Auto-IP addresses invalidate pinned routes. DHCP on a shared router
+can simplify setup but changes topology / requires a DHCP server
+and may require reservations. Two dedicated static /24 links on
+distinct subnets avoid ambiguous routes and DHCP dependency, but
+require one-time instrument and NM changes and are less portable.
+Proposed example ONLY: Rigol PC 192.168.70.1, instrument
+192.168.70.2; PSU PC 192.168.71.1, instrument
+192.168.71.2; masks /24, no instrument-network gateway.
+Check conflicts with other active/VPN networks first.
+
+**Safety / operational status:** this research changes NO instrument,
+OS, code, profiles, PSU outputs or firmware. Next checkpoint:
+view PSU's actual HTTP Configure page *without saving* and
+read Rigol LAN menu status; assess static configuration then
+prepare safe per-instrument staged activation and rollback.
+Keep device configuration changes behind explicit user approval.
+
+
 ## 2026-11-17 — Confirmed NIC MAC identities and simpler preferred design
 
 User confirmed physical interface MACs: Rigol-side built-in
