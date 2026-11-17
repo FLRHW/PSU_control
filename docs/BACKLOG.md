@@ -198,6 +198,33 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Deferred: long-duration experiments and reporting
 
+- [x] **Runtime storage warning (source implemented):** add read-only
+  30-second-poll free-space check during runner heartbeat; when output
+  filesystem reaches 512 MiB reserve, issue console warnings with
+  five-minute repeat limit. No automatic stop, PSU commands, file
+  deletion or override of restoration logic. See RECORDING_RECOVERY.md.
+  Offline regressions added; distinguish from disk-full write recovery.
+- [x] **Read-only interrupted recording audit (source implemented):**
+  stream over existing measurement CSV and report observed readbacks,
+  final-state/LOCAL events, interruption/fault, last recorded time
+  and synthetic-data marker. Audit never connects to PSU, changes
+  outputs or deletes files; logs are not physical safety proof.
+- [x] **Sparse long-duration preview examples:** add 24h (5 keyframes),
+  7d (8), 1000h (11) to profiles/examples, all commanding outputs OFF.
+  Tests validate profile parsing and safe-off keyframes. Synthetic
+  approximately 120k-row mock 1000h CSV and 50ms peak supplied in a
+  downloadable ZIP (not committed due to size).
+- [ ] **Full-disk write failure robustness:** existing CSV flush
+  errors can still disrupt log/cleanup calls; design and test a
+  safety-preserving error pathway before making unattended recording
+  claims. Do not change critical PSU restoration logic based only
+  on mocked tests.
+- [ ] **Durable retention and recovery:** select operator-approved
+  backup and age/size retention policy, then introduce opt-in cleanup
+  only with explicit safeguards. Abrupt PC shutdown cannot guarantee
+  PSU state from CSV records alone.
+
+
 - [x] **Advisory pre-run disk-capacity forecast (source implemented):**
   estimate logging budget using profile duration, setpoint and readback
   intervals and channel count, plus a 512 MiB reserve; warn before opening
