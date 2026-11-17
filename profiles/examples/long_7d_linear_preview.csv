@@ -1,0 +1,21 @@
+# host=192.168.71.2
+# channels=1,2
+# mode=linear
+# interval_s=60
+# readback_interval_s=60
+# ch1_restore=true
+# ch2_restore=true
+# initial_ramp_s=0
+# final_ramp_s=0
+# progress_interval_s=300
+# log_file=long_7d_measurements.csv
+# PREVIEW ONLY: both outputs remain OFF; no unattended run without safety review.
+time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable,ch2_voltage_v,ch2_current_limit_a,ch2_enable
+0,0.0,0.05,0,0.0,0.05,0
+86400,1.0,0.05,0,0.5,0.05,0
+172800,2.0,0.05,0,1.0,0.05,0
+259200,3.0,0.05,0,0.0,0.05,0
+345600,2.0,0.05,0,1.5,0.05,0
+432000,1.0,0.05,0,0.5,0.05,0
+518400,0.5,0.05,0,0.25,0.05,0
+604800,0.0,0.05,0,0.0,0.05,0
