@@ -24,6 +24,9 @@ def audit(path):
         'last_utc_time': None, 'inspection_error': None
     }
     seen, verified = set(), set()
+    verification_row = {}
+    last_local_row = -1
+    last_abort_row = -1
     try:
         with path.open(encoding='utf-8-sig', newline='') as f:
             reader = csv.DictReader(f)
@@ -39,11 +42,16 @@ def audit(path):
                     seen.add(int(ch))
                 if event == 'final_state_verified' and ch in ('1', '2'):
                     verified.add(int(ch))
+                    verification_row[int(ch)] = result['total_rows']
                 result['readbacks'] += (event == 'readback')
                 result['readback_errors'] += (event == 'readback_error')
                 result['local_command_logged'] |= event == 'local_sent'
                 result['interrupted_logged'] |= event == 'interrupted'
                 result['fault_abort_logged'] |= event == 'output_fault_abort'
+                if event in ('interrupted', 'output_fault_abort'):
+                    last_abort_row = result['total_rows']
+                if event == 'local_sent':
+                    last_local_row = result['total_rows']
                 if event == 'config' and 'SYNTHETIC' in str(row.get('note') or '').upper():
                     result['synthetic_data'] = True
                 result['last_event'] = event
@@ -55,14 +63,22 @@ def audit(path):
         result['inspection_error'] = f'{type(exc).__name__}: {exc}'
     result['channels_seen'] = sorted(seen)
     result['final_state_verified'] = sorted(verified)
-    if (not result['inspection_error'] and seen and seen <= verified and
-            result['local_command_logged'] and
-            not result['interrupted_logged'] and not result['fault_abort_logged']):
-        result['status'] = 'LOGGED FINAL VERIFICATION (NOT PHYSICAL CONFIRMATION)'
-    elif result['interrupted_logged']:
-        result['status'] = 'INTERRUPTED / STATE MUST BE CHECKED'
+    cleanup_after_abort = (
+        last_abort_row >= 0 and last_local_row > last_abort_row and
+        bool(seen) and all(verification_row.get(ch, -1) > last_abort_row for ch in seen))
+    result['cleanup_logged_after_interruption'] = bool(cleanup_after_abort)
+    if result['inspection_error']:
+        result['status'] = 'INSPECTION ERROR / STATE UNKNOWN'
+    elif result['total_rows'] == 0:
+        result['status'] = 'EMPTY LOG (NO EVENTS RECORDED)'
     elif result['fault_abort_logged']:
-        result['status'] = 'FAULT ABORT / STATE MUST BE CHECKED'
+        result['status'] = ('FAULT ABORT — LOGGED CLEANUP VERIFIED (NOT PHYSICAL CONFIRMATION)'
+                            if cleanup_after_abort else 'FAULT ABORT — CLEANUP NOT CONFIRMED BY LOG')
+    elif result['interrupted_logged']:
+        result['status'] = ('INTERRUPTED — LOGGED CLEANUP VERIFIED (NOT PHYSICAL CONFIRMATION)'
+                            if cleanup_after_abort else 'INTERRUPTED — CLEANUP NOT CONFIRMED BY LOG')
+    elif seen and seen <= verified and result['local_command_logged']:
+        result['status'] = 'LOGGED FINAL VERIFICATION (NOT PHYSICAL CONFIRMATION)'
     if result['synthetic_data']:
         result['status'] = 'SYNTHETIC DATA / NO HARDWARE STATE IMPLIED'
     return result
