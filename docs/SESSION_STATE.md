@@ -1,5 +1,51 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Recording-audit hardware-log acceptance and classification refinement
+
+User ran new read-only `cpx400dp_recording_audit.py` on
+`reports/18_measurements_20261117_204309_699555.csv`:
+7,334 events, 1,218 readbacks, 0 readback_error, both CH1
+and CH2 with `final_state_verified`, and `local_sent`;
+original audit classified LOGGED FINAL VERIFICATION.
+This is real-log parsing acceptance only; do **not** infer
+physical output state or an independent LOCAL readback.
+
+User then audited the entire `reports/` directory: **21**
+CSV files total. Of these, **12** were classified LOGGED
+FINAL VERIFICATION, **6** classified INTERRUPTED, and
+**3** contained zero event rows. All six INTERRUPTED
+logs reported both channel verification events and a
+`local_sent` event; those may represent controlled Stop
+with successful logged cleanup rather than missing
+restoration. The original label "STATE MUST BE CHECKED"
+was insufficiently specific. The old output shows
+presence but does not establish event ordering.
+
+Implemented audit refinement on `dev`: track event row
+ordering. For interrupted/fault-abort logs, show
+`LOGGED CLEANUP VERIFIED (NOT PHYSICAL CONFIRMATION)`
+**only if** `final_state_verified` for every observed
+channel and `local_sent` are recorded **after the last**
+interruption/fault marker; otherwise show
+`CLEANUP NOT CONFIRMED BY LOG`. This preserves the
+interrupted/fault status instead of incorrectly recasting
+it as ordinary completion. Zero-event CSVs are now
+separately labelled `EMPTY LOG (NO EVENTS RECORDED)`.
+Errors labelled inspection errors. Added tests covering
+ordering, missing per-channel verification, zero-event
+files and original complete cases.
+
+**Implemented and offline tests pending full CI at docs
+time**; refined labels have NOT yet been re-run on the
+user's 21 real CSVs. No PSU commands, file mutation,
+automatic reconnection or recovery are involved.
+
+Next optional user-side validation: pull dev and rerun
+the read-only audit on `reports`; no PSU hardware
+action is required. Earlier user-local untracked
+`profiles/18.csv` must remain untouched.
+
+
 ## 2026-11-17 — CI PASS for runtime storage monitor, recording audit and examples
 
 Full GitHub Actions offline regression `44173240184` on
