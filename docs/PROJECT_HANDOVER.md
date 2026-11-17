@@ -1,5 +1,33 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — PSU web Configure page visually confirmed (no changes)
+
+User supplied a screenshot of the live CPX Series CONFIGURATION PAGE.
+It visibly contains all three checked TCP/IP Configuration Mode options:
+`DHCP >>`, `AUTO-IP >>`, and `STATIC`. The displayed static
+configuration fields show IPv4 `192.168.0.100`, mask
+`255.255.255.0`, gateway `0.0.0.0`, and both DNS servers
+`0.0.0.0`. Page instruction: static settings are used if automatic
+configuration is disabled or servers not available; `Change` is
+required to activate changes and some fields require power-cycling.
+These fields DO NOT prove the live PSU IP is 192.168.0.100; the
+earlier observed Auto-IP instrument address was 169.254.51.7.
+No settings were changed.
+
+Decision guidance: separate static /24 networks are recommended for
+both fixed-position instruments, but configuring both static is not
+strictly necessary. One static and one Auto-IP can work with correctly
+scoped NIC profiles but retains dynamic-address and 169.254/16 issues.
+Proposed (NOT APPLIED): Rigol 192.168.70.2 / host 192.168.70.1;
+PSU 192.168.71.2 / host 192.168.71.1; mask 255.255.255.0,
+no gateway/DNS on isolated links, DHCP and Auto-IP disabled.
+Avoid the screenshot's preset 192.168.0.100/24 because active
+Wi-Fi is already 192.168.0.0/24. Before any application, confirm
+no address overlap with other networks/VPNs, ensure host profiles
+are prepared for migration, and keep recovery procedures ready.
+No OS/profile/firmware/PSU changes were performed; validation
+remains screenshot-only, not static-IP hardware validation.
+
 ## 2026-11-17 — Manufacturer documentation verified; network option decision
 
 Reviewed the *CPX400DP Instruction Manual Issue 1*
