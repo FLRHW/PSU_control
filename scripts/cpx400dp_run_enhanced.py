@@ -24,7 +24,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from cpx400dp_regulation import decode_limit_event
-from cpx400dp_storage import storage_forecast
+from cpx400dp_storage import storage_forecast, DiskSpaceMonitor
 
 CONFIG_KEYS = {'host', 'channels', 'mode', 'interval_s', 'readback_interval_s', 'log_file', 'ch1_restore', 'ch2_restore', 'initial_ramp_s', 'final_ramp_s', 'progress_interval_s', 'generate_report', 'report_layout', 'abort_on_output_fault'}
 NUMBER = re.compile(r'^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([VA])?\s*$')
@@ -712,6 +712,8 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                  'local': 'NOT SENT', 'physical': {ch: 'NOT CHECKED' for ch in channels}}
         next_readback_at = None
         next_progress_at = None
+        # Advisory-only; reads the output filesystem and never commands the PSU.
+        disk_monitor = DiskSpaceMonitor(log_path)
         output_health = OutputHealthMonitor()
         optimizer = CommandOptimizer()
         abort_fault = (profile_option(path, 'abort_on_output_fault', 'true').lower() == 'true')
@@ -982,6 +984,11 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 heartbeat(phase, force=True)
         def heartbeat(phase, force=False):
             nonlocal next_progress_at
+            # Called throughout profile, pauses, and ramps. The monitor rate
+            # limits itself and suppresses probe errors, including in cleanup.
+            disk_warning = disk_monitor.check()
+            if disk_warning:
+                print(disk_warning, flush=True)
             if start is None or next_progress_at is None:
                 return
             now = time.monotonic()
