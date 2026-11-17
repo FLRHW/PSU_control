@@ -1,5 +1,31 @@
 # Two-instrument Ethernet persistence — proposed plan (NOT APPLIED)
 
+## Manufacturer support / firmware qualification (2026-11-17)
+
+- **Rigol DS1054Z:** DS1000Z User's Guide, LAN settings pp. 14-3 to
+  14-5, explicitly supports user-selected Static IP and IP/mask
+  entry; set Power-on Recall to Last, DHCP and Auto IP off for
+  persistence. Manual documents Apply and Initialize.
+  Source: https://www.batronix.com/pdf/Rigol/UserGuide/DS1000Z_UserGuide_EN.pdf
+- **CPX400DP:** official Issue 1 manual documents configurable LAN
+  via embedded web Configure page and rear LAN RESET recovery.
+  DHCP is attempted before Auto-IP by default.
+  Source: https://resources.aimtti.com/manuals/CPX400DP_Instruction_Manual-Iss1.pdf
+- **Firmware caveat:** user's CPX400DP identifies interface firmware
+  **4.06**. Manufacturer firmware history documents fixing the
+  `NETCONFIG`, `IPADDR`, `NETMASK` remote commands in **4.22**,
+  with LAN reliability improvements in 4.12 and 4.20. Do not use
+  remote SCPI network-write commands on 4.06.
+  Source: https://www.aimtti.com/resources/cpx-series-interface-firmware-file
+- **Decision:** recommend independent static /24 subnets for fixed
+  bench instruments, subject to inspecting the PSU web Configure
+  page on the user's actual unit, checking subnet conflicts, and
+  approval before writes. DHCP via a shared router and the current
+  Auto-IP approach are valid alternatives, each with tradeoffs.
+- **Status:** evidence/recommendation only. Nothing applied; no
+  firmware update planned. Do not use older /32 proposal as
+  an executable recipe.
+
 ## Preferred simplification (2026-11-17, NOT APPLIED)
 
 The user requested a less complex, standard setup. NIC hardware identities
