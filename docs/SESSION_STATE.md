@@ -1,5 +1,26 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — CI PASS for runtime storage monitor, recording audit and examples
+
+Full GitHub Actions offline regression `44173240184` on
+`dev` commit `abc23813dd9b85c119e9f5f1952ec3b3de369aed`
+**completed successfully**. This is the first completed
+full-suite run including the runtime disk-warning code, read-only
+recording audit and all three new long preview examples and tests.
+Previous intermediate runs were cancelled by branch concurrency
+when superseded by later commits. No hardware experiment or
+physical full-disk/reboot/failure recovery validation was
+performed or claimed.
+
+**Next requirements:** preserve `main` stable v13.5; never
+promote without explicit approval. A runtime warning is not
+space reservation or an automatic safe stop. A CSV audit is
+not a proof of actual hardware output/LOCAL. Existing CSV
+write failure safety and asynchronous loss-of-power behavior
+remain unverified; design and test separately. No automatic
+old-CSV deletion policy has been introduced.
+
+
 ## 2026-11-17 — Long-run runtime storage warnings, recording audit and examples
 
 Per user instruction, continued offline-only `dev` development
