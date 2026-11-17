@@ -1,5 +1,31 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — PSU dedicated NM profile down/up hardware validation PASS
+
+User explicitly deactivated and reactivated `CPX400DP-Direct` UUID
+`a6fa9a7a-e871-4752-8c85-60e4000fe42a` on Dell D6000
+`enx0c3796303396` using `nmcli connection down` and
+`nmcli connection up ... ifname enx0c3796303396`.
+Both commands reported success. Post-activation `nmcli`
+showed `GENERAL.CONNECTION=CPX400DP-Direct` and NM state
+`100 (connected)`; `ip -br -4 addr` showed `192.168.71.1/24`.
+Sourced ping `ping -c 4 -I 192.168.71.1 192.168.71.2` returned
+**4/4 responses, 0% loss**, average 3.595 ms. The Wi-Fi default
+route remained `default via 192.168.0.1 dev wlp4s0`.
+**Hardware/network PASS:** the saved profile survives manual NM
+down/up and restores PSU reachability. This does not prove PSU SCPI
+after reconnect, physical cable disconnect, PSU reboot, host reboot
+or long-term automatic autoconnect behavior.
+
+**Next planned:** Rigol dedicated static subnet 192.168.70.0/24,
+host enp3s0f1 (MAC 18:3d:2d:3c:93:6d) at 192.168.70.1/24,
+scope at 192.168.70.2/24, no gateway. First read-only check for
+route conflicts and interface address, then temporary host address
+and route verification before changing instrument settings. Avoid
+touching validated CPX400DP-Direct and Wi-Fi profiles. No Rigol
+configuration change was reported at this checkpoint.
+
+
 ## 2026-11-17 — Saved D6000 PSU profile activation hardware PASS
 
 User executed on Kubuntu:
