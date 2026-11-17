@@ -1,5 +1,37 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — User persistence preflight and follow-up
+
+**User-provided first read-only report** listed only D6000
+`enx0c3796303396`, address `169.254.51.8/16`,
+NetworkManager state `100 (connected (externally))`, apparent
+connection `enx0c3796303396`. Thus address persistence is
+**not established**. Rigol `enp3s0f1` was absent from the *active
+link-local route* list; that does not prove the NIC is missing,
+and no inference about its power state is made. The known older
+two-/16 conflict remains unresolved. User did not run any
+network-mutating commands or the GUI Prepare adapter.
+
+**Implementation on dev:** amended the read-only preflight to
+also enumerate Ethernet-style interfaces from the IPv4 address
+snapshot even if they have no current link-local route, showing
+their current NetworkManager state/profile. This avoids hiding a
+Rigol interface when its `169.254/16` route vanishes. Added
+mock regression for the route-free Rigol case, with Wi-Fi excluded
+from this inventory. A heuristic NIC naming filter is for
+reporting only, not configuration or authorization.
+No system networking changes, PSU commands or automatic
+persistent profile migration were made.
+
+**Next user checkpoint:** with both physical instruments powered
+on, repeat Network settings → Assess persistence and share the
+full report. Then develop a proposed reversible route/profile
+configuration for the actual connected setup; user approval
+still required before applying OS changes. Do not press
+Prepare adapter on the externally configured dock.
+
+
+
 ## 2026-11-17 — Network persistence preflight (source implemented)
 
 In response to the user's direction to proceed without waiting for
