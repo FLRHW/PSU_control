@@ -10,6 +10,47 @@ Usage = namedtuple('Usage', 'total used free')
 
 
 class StorageForecastTests(unittest.TestCase):
+    def test_live_monitor_warns_only_at_low_space_and_throttles(self):
+        clock = [100.]
+        disk = [120 * 1024 * 1024]
+        calls = []
+        monitor = storage.DiskSpaceMonitor(
+            "/tmp/experiment.csv", reserve_bytes=256 * 1024 * 1024,
+            check_interval_s=30, repeat_interval_s=300,
+            monotonic=lambda: clock[0],
+            disk_usage=lambda folder: (calls.append(folder) or Usage(0, 0, disk[0])))
+        self.assertIn("[STORAGE WARNING]", monitor.check())
+        self.assertEqual(len(calls), 1)
+        clock[0] += 3
+        self.assertIsNone(monitor.check())
+        self.assertEqual(len(calls), 1)
+        clock[0] += 31
+        self.assertIsNone(monitor.check())
+        self.assertEqual(len(calls), 2)
+        clock[0] += 301
+        disk[0] = 800 * 1024 * 1024
+        self.assertIsNone(monitor.check())
+        self.assertEqual(len(calls), 3)
+        clock[0] += 31
+        disk[0] = 100 * 1024 * 1024
+        self.assertIn("[STORAGE WARNING]", monitor.check())
+
+    def test_live_monitor_probe_failures_do_not_affect_runner(self):
+        monitor = storage.DiskSpaceMonitor(
+            "/tmp/experiment.csv", disk_usage=lambda _: (_ for _ in ()).throw(OSError("disk")))
+        self.assertIsNone(monitor.check())
+
+    def test_runner_live_monitor_only_warns_and_does_not_issue_commands(self):
+        source = (Path(__file__).resolve().parents[1] /
+                  "scripts" / "cpx400dp_run_enhanced.py").read_text()
+        self.assertIn("disk_monitor = DiskSpaceMonitor(log_path)", source)
+        heartbeat = source[source.index("def heartbeat(phase, force=False):"):
+                           source.index("def wait_until(deadline, phase):")]
+        self.assertIn("disk_monitor.check()", heartbeat)
+        self.assertIn("print(disk_warning, flush=True)", heartbeat)
+        self.assertNotIn("send(sock", heartbeat)
+        self.assertNotIn("raise", heartbeat)
+
     def test_no_warning_with_sufficient_capacity(self):
         result = storage.storage_forecast(
             Path('/tmp/measurements.csv'), 1000, .05, .1, 2,
