@@ -1,5 +1,28 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Final streaming-report CI acceptance
+
+**PASS:** GitHub Actions CPX400DP offline regression run
+`44171162141` on `dev` commit
+`ed60442dfaf5a53727267f49f81de1c854885ac0`
+completed successfully. This includes the new large-CSV
+reporting suite, synthetic extrema-preserving transient, 32000-row
+memory-bound check, small-report compatibility, Node.js generated
+chart JavaScript syntax check, and existing PSU safety/GUI
+offline regressions. Earlier failed runs were due to an error
+in the new test's regex, fixed before this success.
+
+**Accepted level:** source implemented and offline CI passed;
+not tested interactively in a desktop browser with a real
+large log, and not hardware-endurance tested. No additional
+hardware test required for offline report generation. Keep
+HTML next to matching _report_data folder. Subsequent v13.6
+backlog remains runtime disk/retention hardening and optional
+desktop-browser visual inspection. User has authorised
+autonomous offline development, but no change to physical
+PSU control behaviour is authorised.
+
+
 ## 2026-11-17 — Streaming large-CSV report and indexed offline detail viewer
 
 Per user instruction, continued v13.6 development automatically without
