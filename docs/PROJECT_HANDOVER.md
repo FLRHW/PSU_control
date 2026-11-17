@@ -1,5 +1,50 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Confirmed roaming Ethernet profile; runtime route misdirection
+
+User supplied read-only saved-profile and kernel routing diagnostics. The only
+active Ethernet profile `Wired connection 2` (UUID
+`4158f5eb-2e6b-3274-8f74-bb2a48c41126`) has NO
+`connection.interface-name` or `802-3-ethernet.mac-address` binding,
+`connection.autoconnect=yes`, `ipv4.method=manual`,
+`ipv4.addresses=169.254.10.1/16`, no `ipv4.routes`,
+`ipv4.never-default=no`, and `ipv4.route-metric=-1`. The
+profile is currently active on the **D6000** `enx0c3796303396`,
+which now owns `169.254.10.1/16` instead of its previously observed
+`169.254.51.8/16`. The built-in Rigol NIC `enp3s0f1`
+reports carrier=1 but NM state 30 disconnected, with no IPv4 address
+shown in `ip -br -4 addr`. Both
+`ip route get 169.254.179.79` (Rigol) and
+`ip route get 169.254.51.7` (PSU) select the D6000 with
+source `169.254.10.1`. The internet default route remains via
+Wi-Fi `wlp4s0` and gateway `192.168.0.1`.
+
+**Confirmed configuration fault:** the unbound autoconnect
+`Wired connection 2` profile is being applied on the wrong
+Ethernet adapter and can roam. The present routing is wrong for
+the Rigol. This does NOT by itself prove whether the PSU currently
+responds or whether either instrument's Auto-IP address remains
+unchanged; no live probe was performed.
+
+**Proposed next migration (NOT APPLIED):** back up that exact UUID,
+retain/replace it only with an interface- and MAC-bound Rigol
+profile using `169.254.10.1/16` and
+`169.254.179.79/32` route; create a separately bound D6000
+profile using `169.254.51.8/16` and
+`169.254.51.7/32` route. Set `never-default=yes`
+on both; avoid any generic autoconnect fallback, preserve Wi-Fi,
+verify actual NIC MACs and current instrument IPs before changes,
+and prepare scoped rollback before any activation. A profile on
+an inactive NIC is NOT evidence of an OS change having occurred.
+Instrument Auto-IP addresses may change, invalidating hardcoded
+host routes; fixed independent subnets may be considered later.
+
+**Status:** read-only diagnosis only. NO OS, PSU, GUI or source changes,
+reboots, instrument commands, or new hardware validation.
+User approval required before configuration modifications.
+The earlier `NETWORK_PERSISTENCE_PLAN.md` proposal MUST NOT be
+applied verbatim until corrected for the roaming UUID.
+
 ## 2026-11-17 — Saved-profile inventory contradicts earlier NIC assignment
 
 User ran read-only `nmcli` checks on the M75q. Current inventory shows
