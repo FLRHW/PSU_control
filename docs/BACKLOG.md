@@ -211,9 +211,25 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   1,000-hour/50 ms profile (offline tested, **not a 41-day instrument run**).
 - [x] Dynamic preview/report time axes (seconds/minutes/hours/days);
   browser-side per-pixel extrema preservation for visible windows.
-- [ ] Report generator still reads the entire CSV in memory and embeds all
-  data arrays in HTML; implement streaming aggregation and bounded, indexed
-  on-demand data retrieval for large measurements.
+- [x] **Large-log reporting source implemented (offline):** CSV files at
+  least 8 MiB now use the new two-pass streaming report generator.
+  Small logs retain the legacy self-contained HTML. The new HTML
+  includes fixed-size first/last/min/max overview buckets, a local
+  companion _report_data directory, per-channel 4096-record JS chunks,
+  time-range indexing, demand-loading and six-chunk browser cache.
+  Step-profile traces, output/pause/ramp indicators and direct
+  time-window navigation are included. See REPORT_STREAMING.md.
+  Full-suite CI and desktop-browser acceptance recorded separately.
+  This does NOT make report storage or runtime disk monitoring bounded.
+- [ ] **Large-report browser visual acceptance:** inspect a synthetic long
+  recording offline, zoom into a brief spike near the end, confirm
+  detail chunks load from file:// and preserve exact sample timing,
+  step transitions and cursor measurements. CI syntax/memory checks
+  are not proof of real desktop-browser behaviour.
+- [ ] **Large-report robustness and retention:** design automatic old-data
+  cleanup/retention, ensure complete report+data-folder archival,
+  and consider storing compact indexed data in fewer files for
+  many-day high-rate readbacks.
 - [ ] Verify short-time-span zoom (including 50 ms events) on very long
   recordings without losing peaks, transitions or timing accuracy.
 - [ ] Define log-retention, disk-space monitoring, resilience to abrupt host
