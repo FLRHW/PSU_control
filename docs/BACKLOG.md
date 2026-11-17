@@ -198,6 +198,15 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Deferred: long-duration experiments and reporting
 
+- [x] **Advisory pre-run disk-capacity forecast (source implemented):**
+  estimate logging budget using profile duration, setpoint and readback
+  intervals and channel count, plus a 512 MiB reserve; warn before opening
+  the measurement CSV or instrument connection if free capacity is lower.
+  This is read-only and never prevents a run; no runtime disk monitoring,
+  guaranteed space reservation, report-size prediction or hardware
+  endurance claims. Offline unit regression added; final CI pending.
+
+
 - [x] Lazy scheduler and bounded-gap validation for a synthetic
   1,000-hour/50 ms profile (offline tested, **not a 41-day instrument run**).
 - [x] Dynamic preview/report time axes (seconds/minutes/hours/days);
