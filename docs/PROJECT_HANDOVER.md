@@ -1,5 +1,41 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Network persistence preflight (source implemented)
+
+In response to the user's direction to proceed without waiting for
+additional hardware testing, a new **read-only** persistence assessment
+was added on `dev`:
+
+- `scripts/cpx400dp_network_preflight.py` inspects installed IPv4
+  routes and addresses, then consults NetworkManager's active
+  connection/state and saved IPv4 methods, explicit addresses,
+  routes and autoconnect values on affected link-local interfaces.
+- Reports overlapping links, externally configured adapters (the
+  previously observed D6000 state), missing saved profile host routes
+  (e.g., the temporary Rigol `169.254.179.79/32` exception),
+  and effective kernel routing for an entered PSU IP.
+- `scripts/cpx400dp_gui.py` adds **Assess persistence** in Network
+  settings. A `QThread` runs the bounded read-only commands so Qt
+  stays responsive; an independently scrollable report dialog presents
+  the results. The action never creates or changes IPs, profiles,
+  routes, instrument connections, outputs or runner state.
+- `tests/test_v13_6_network_preflight.py` simulates the real topology,
+  external dock, missing and saved host routes, invalid host and
+  GUI worker structure.
+
+**Important limitations:** The report is a snapshot. It cannot infer
+whether a host route is persisted by non-NetworkManager mechanisms
+(e.g., an external dispatcher), nor can it guarantee connectivity
+after a reboot. No permanent OS setup is implemented or
+hardware-tested. Next step: user runs read-only preflight on
+Kubuntu and supplies its report, allowing a narrowly scoped proposal
+for NetworkManager persistence. Any actual OS network changes
+require explicit permission and a verified rollback plan.
+The DSRemote `screen_thread.cpp line 783` fault remains deferred
+on the backlog; it is not a prerequisite for PSU work.
+
+
+
 ## 2026-11-16 — DSRemote deferred; PSU v13.6 read-only route UX
 
 **User direction:** DSRemote 0.46 connected with PSU GUI open, displayed
