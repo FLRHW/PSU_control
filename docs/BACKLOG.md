@@ -8,6 +8,16 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Active priority: reliable network discovery and guided setup (v13.6)
 
+- [x] **Observe inactive Ethernet links in persistence report:** include
+  Ethernet-style interfaces from the address snapshot even if currently
+  missing an active link-local route; distinguish a missing route from
+  a missing interface. Mock regression covers an absent Rigol route.
+- [ ] **Validate actual saved NM profiles and propose approved persistence:**
+  initial report showed only D6000 `169.254.51.8/16` and
+  `connected (externally)`; need both powered-on instrument reports
+  to design a safe two-link setup.
+
+
 - [x] **Read-only persistence preflight in the GUI:** new **Assess persistence**
   worker checks current IPv4 routes, addresses, NetworkManager state
   and saved profile fields, warning about externally configured docks
