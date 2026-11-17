@@ -1,5 +1,30 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Both direct static links and Wi-Fi confirmed concurrently
+
+User supplied another read-only network report:
+`nmcli -f NAME,DEVICE connection show --active` listed
+`CPX400DP-Direct` on `enx0c3796303396`,
+`Rigol-Direct` on `enp3s0f1`, and Wi-Fi
+`CordeiroSuculento` on `wlp4s0` (plus `lo`).
+Rigol sourced ping from `192.168.70.1` to
+`192.168.70.2`: 4/4 replies, 0% loss, average
+0.273 ms. CPX400DP sourced ping from `192.168.71.1`
+to `192.168.71.2`: 4/4 replies, 0% loss, average
+4.296 ms. Default route remains `via 192.168.0.1
+dev wlp4s0 src 192.168.0.252`.
+
+**Important evidence limit:** the user supplied requested post-reboot
+commands' output but did not explicitly state that a reboot occurred.
+Mark the active-profile and simultaneous IP reachability checks PASS;
+host reboot persistence remains conditional/unconfirmed unless the
+user confirms that the PC was restarted before these commands.
+Do not overclaim. The next gate is GUI `Network settings → Test
+connection` with PSU `192.168.71.2` / D6000; then Rigol
+capture `192.168.70.2` / built-in NIC. No new software changes,
+instrument commands or PSU output tests in this checkpoint.
+
+
 ## 2026-11-17 — Both instruments simultaneously reachable after Rigol NM down/up (PASS)
 
 User enabled `connection.autoconnect=yes` on `Rigol-Direct`
