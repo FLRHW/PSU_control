@@ -1,5 +1,65 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Streaming large-CSV report and indexed offline detail viewer
+
+Per user instruction, continued v13.6 development automatically without
+new bench tests. **No changes** to the separate Rigol_capture project,
+PSU network settings, or any PSU SCPI/control/restore/LOCAL code.
+
+Implemented a second report path in
+`scripts/cpx400dp_report_stream.py`, automatically selected from
+`scripts/cpx400dp_report.py` for measurement CSV files >=8 MiB.
+Legacy small-CSV self-contained reports remain unchanged. CLI
+`--stream` forces the new renderer for test fixtures.
+
+Large report architecture: two sequential DictReader passes over
+the original immutable measurement CSV; pass 1 derives run statistics,
+initial/final output-state summary, power/energy, statuses, pause/
+ramp/OFF annotations; pass 2 keeps per-channel plottable trace
+chunks bounded to 4096 records and creates an extrema-preserving
+overview with 1200 time bins (first/last/min/max). Generated
+HTML embeds compact overview, per-channel time index and chart UI.
+Separate sibling `*_report_data` folder holds numbered local JS
+detail files. HTML loads only up to three intersecting chunks
+for zoomed-in windows using script tags (works under file://
+without HTTP server), with an LRU cache capped at six chunks.
+New direct elapsed-time/window inputs allow navigating straight
+to narrow 50 ms windows of long experiments. Chart retains
+trace checkboxes, zoom/pan, cursor Delta-t/Delta-V, step-profile
+vertical transitions, negative sample markers and output/pause/
+ramp annotations. Power stats derive from logged sampled V*I.
+
+Added `tests/test_v13_6_report_stream.py`: small-report
+compatibility; forced streaming; synthetic CH2 transient/peak
+preserved in full data and extrema overview; output sidecar
+files and chart controls; 32000-row Python tracemalloc budget;
+CLI/automatic threshold; error cases; generated viewer Node.js
+syntax test when Node is available.
+
+**CI note:** initial full offline suite on code/test commit
+`563ba1de` passed (the Node syntax test had not been added).
+Subsequent CI on `3abad48f` failed solely because the new
+test's regex expected two scripts but captured one: the test
+used doubled backslashes in a raw regex. Fixed in
+`f8d3b045`. Do not mark the final state CI PASS until
+a run containing this fix and final docs is successful.
+
+See `docs/REPORT_STREAMING.md` for usage and limitations.
+Not a live viewer; requires moving HTML and its _report_data
+folder together; legacy small reports remain standalone.
+Chunk manifest still grows with file size; metadata annotation
+arrays are capped (10000 per channel, 100 diagnostics).
+A full-screen overview is downsampled; narrow zoom loads true
+samples. Two passes and additional disk files are necessary.
+Does not provide in-run disk-space monitoring, crash recovery
+or evidence of multi-day PSU hardware reliability. **Desktop
+browser visual acceptance is not yet performed**, but no new
+PSU bench testing is required because this change is offline
+report generation only. The local untracked
+`profiles/18.csv` must remain untouched.
+
+
+
 ## 2026-11-17 — v13.6 long-run disk capacity advisory (source implemented)
 
 After successful address/interface persistence acceptance, resumed
