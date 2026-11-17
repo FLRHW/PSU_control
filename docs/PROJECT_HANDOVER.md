@@ -1,5 +1,31 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — PSU GUI verified-destination persistence hardware/UI acceptance PASS
+
+User confirmed **both** the PSU IPv4 field and selected interface
+are remembered across a full GUI close/relaunch on their Kubuntu
+workstation, following the v13.6 change committed on `dev`.
+Expected verified destination was `192.168.71.2` on D6000
+`enx0c3796303396`, previously confirmed with live
+read-only **Test connection**. This is real user-side GUI
+persistence validation, not an electrical-output or runner test.
+
+GitHub Actions `CPX400DP offline regression` run
+`44166633012`, on head `f96db5cd80f1d16b7095ef648cbaf557e853e9e5`,
+completed **successfully**. Other intermediate workflow runs
+were cancelled due to newer commits; the final run passed.
+
+**Status**: implemented, offline-CI-passed and on-hardware/UI
+accepted. No further change needed for this feature.
+Keep the independent Rigol_capture project untouched per user.
+Local `profiles/18.csv` was reported untracked and must not be
+modified or deleted without an explicit request.
+
+**Next**: resume prioritised CPX400DP v13.6 feature development,
+preserve verified profile/manual-control safety, do offline tests
+before requesting additional hardware tests.
+
+
 ## 2026-11-17 — Return to PSU v13.6: persist last verified GUI destination
 
 Per user direction, **do not modify the separate Rigol_capture project**.
