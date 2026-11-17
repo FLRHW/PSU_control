@@ -15,9 +15,12 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   and unverified manual typing do not overwrite them.
   Offline structural regression added; CI and physical GUI acceptance
   to be recorded separately.
-- [ ] **Hardware GUI acceptance:** after updating dev, Test connection
-  at `192.168.71.2` through D6000; close and relaunch and verify
-  address and interface prefill; no automatic PSU connection.
+- [x] **Hardware GUI acceptance PASS (2026-11-17):** user verified
+  that both previously tested PSU address and interface are restored
+  after fully closing and reopening the GUI on Kubuntu. Read-only
+  Test connection had identified `192.168.71.2` via D6000
+  `enx0c3796303396`. No output-control test implied. Offline
+  regression workflow run 44166633012 completed successfully.
 - [x] **Dedicated static bench networks user-validated:** Rigol
   `192.168.70.2` on built-in NIC `192.168.70.1`;
   PSU `192.168.71.2` on D6000 `192.168.71.1`.
