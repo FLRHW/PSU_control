@@ -8,6 +8,17 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Active priority: reliable network discovery and guided setup (v13.6)
 
+- [x] **Documented two-instrument persistent networking proposal:**
+  [NETWORK_PERSISTENCE_PLAN.md](NETWORK_PERSISTENCE_PLAN.md) records
+  Rigol's saved `Wired connection 2` profile, D6000 externally
+  configured address, proposed narrow per-host routes, a scoped new
+  D6000 NetworkManager profile, backups, rollback and acceptance.
+  **Review-only:** no OS configuration change executed.
+- [ ] **User-approved profile migration:** after explicit approval,
+  inventory existing UUIDs and implement/validate the plan with
+  both instruments powered on; preserve Wi-Fi and test reconnects.
+
+
 - [x] **Observe inactive Ethernet links in persistence report:** include
   Ethernet-style interfaces from the address snapshot even if currently
   missing an active link-local route; distinguish a missing route from
