@@ -1,5 +1,33 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Rigol /24 active-subnet conflict check PASS; profile preparation instructed
+
+User supplied live `ip -br -4 addr`, `ip -4 route show table all`,
+`nmcli` inventory and `ip route get 192.168.70.2`.
+Active interfaces are Wi-Fi `wlp4s0` `192.168.0.252/24`
+(default via `192.168.0.1`), PSU dock `enx0c3796303396`
+`192.168.71.1/24`, and loopback. No current IPv4
+address or route overlaps proposed `192.168.70.0/24`.
+With no Rigol route yet, `ip route get 192.168.70.2`
+predictably selects the Wi-Fi default gateway; this is not
+evidence of a conflict. Rigol NIC `enp3s0f1` remains
+NM state 30 disconnected. Existing generic `Wired connection 2`
+is saved but inactive. Active routing check does not exclude
+future/disconnected VPN or other saved address conflicts.
+
+**Next user instruction (not yet executed):** use NetworkManager rather
+than a transient `ip addr` for the Rigol host. Create inactive
+`Rigol-Direct` profile, `ifname enp3s0f1`, MAC
+`18:3d:2d:3c:93:6d`, static host
+`192.168.70.1/24`, `ipv4.never-default=yes`,
+IPv6 disabled and initial `autoconnect=no`.
+Activate on the built-in NIC, verify scope route to proposed
+`192.168.70.2`, ensure PSU route and Wi-Fi default unchanged.
+Only after PC-side verification set Rigol IP from front panel.
+**No Rigol profile creation, source change, scope settings change,
+or hardware validation has occurred in this checkpoint.**
+
+
 ## 2026-11-17 — PSU dedicated NM profile down/up hardware validation PASS
 
 User explicitly deactivated and reactivated `CPX400DP-Direct` UUID
