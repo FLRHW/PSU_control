@@ -1671,9 +1671,11 @@ class Window(QMainWindow):
             event.ignore()
             return
         if ((self.connection_probe_job and self.connection_probe_job.isRunning()) or
-            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
-            QMessageBox.information(self, 'Network setup in progress',
-                                    'Complete the connection check or adapter setup before closing.')
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning()) or
+            (self.persistence_preflight_job and self.persistence_preflight_job.isRunning())):
+            QMessageBox.information(self, 'Network check in progress',
+                                    'Complete the connection check, persistence assessment '
+                                    'or adapter setup before closing.')
             event.ignore()
             return
         if self.preview_job and self.preview_job.isRunning():
