@@ -1,5 +1,42 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Both-instruments-on persistence assessment and reviewed proposal
+
+User repeated GUI **Assess persistence** with Rigol and PSU powered on.
+Both link-local `169.254.0.0/16` routes were present.
+
+- Rigol `enp3s0f1`: `169.254.10.1/16`, NetworkManager
+  `100 (connected)`, profile `Wired connection 2`,
+  saved `ipv4.method=manual`, saved address `169.254.10.1/16`,
+  autoconnect yes.
+- D6000 `enx0c3796303396`: `169.254.51.8/16`,
+  NetworkManager `100 (connected (externally))`, runtime
+  connection `enx0c3796303396`, not proven persistent.
+- No saved Rigol host route was listed in the active report.
+  An earlier temporary `169.254.179.79/32` exception had fixed
+  incorrect scope routing; its current presence is not established
+  by this report.
+
+**Action on `dev`:** authored
+[NETWORK_PERSISTENCE_PLAN.md](NETWORK_PERSISTENCE_PLAN.md)
+with a *review-only* approach: preserve the Rigol NM profile,
+back up verified profiles/UUIDs, save a Rigol /32 host route,
+create a unique hardware-specific manual-address dock profile
+with a PSU /32 route, preserve Wi-Fi, verify routing/identity,
+and provide scoped rollback. Addresses remain dependent on the
+instruments' Auto-IP assignments; plan does not guarantee
+indefinite persistence. Existing NM profiles must be inventoried
+before a future actual migration.
+
+**NOT IMPLEMENTED / NOT HARDWARE-TESTED:** no NetworkManager
+profile creation, activation, saved route changes, reboot,
+instrument IP reconfiguration or OS changes were performed.
+User's explicit approval is required for those operations.
+`main` remains v13.5. DSRemote waveform-reading issue stays
+deferred.
+
+
+
 ## 2026-11-17 — User persistence preflight and follow-up
 
 **User-provided first read-only report** listed only D6000
