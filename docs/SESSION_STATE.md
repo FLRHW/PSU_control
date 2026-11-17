@@ -1,5 +1,33 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Confirmed NIC MAC identities and simpler preferred design
+
+User confirmed physical interface MACs: Rigol-side built-in
+`enp3s0f1` = `18:3d:2d:3c:93:6d`; PSU-side Dell
+D6000 `enx0c3796303396` = `0c:37:96:30:33:96`.
+These are NIC identities, not instrument MAC addresses.
+
+User raised valid concern over repeated diagnostics and complexity.
+Prefer a **simple, conventional static-IP configuration on separate
+non-overlapping subnets**, subject to verifying device settings and
+explicit authorization: illustrative Rigol link host
+`192.168.70.1/24`, scope `192.168.70.2/24`;
+PSU link host `192.168.71.1/24`, CPX400DP
+`192.168.71.2/24`. These are PROPOSED, not current addresses.
+Both devices' documentation supports configurable static LAN
+addressing. Two separate MAC/interface-bound NetworkManager
+profiles would use `never-default=yes` with no gateways and
+autoconnect enabled, removing competing 169.254/16 route ambiguity.
+Existing generic `Wired connection 2` must be safely constrained or
+disabled from roaming; back up UUID first. Preserve Wi-Fi.
+
+**Still NOT APPLIED:** no host profile, routing or instrument-side
+changes, and no new code or hardware validation. Avoid further
+piecemeal diagnostics unless needed for execution/recovery.
+Stage any instrument-side static-IP transition with reversible
+steps because changing an instrument address breaks its active link
+until corresponding host settings are ready.
+
 ## 2026-11-17 — Confirmed roaming Ethernet profile; runtime route misdirection
 
 User supplied read-only saved-profile and kernel routing diagnostics. The only
