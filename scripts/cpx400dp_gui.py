@@ -7,6 +7,7 @@ that opens the instrument socket, sends setpoints and restores output states.
 import os
 import csv
 import json
+import ipaddress
 import shutil
 import socket
 import tempfile
@@ -262,7 +263,6 @@ class Window(QMainWindow):
         saved_iface = str(self.settings.value('verified_psu_interface', '') or '').strip()
         try:
             if saved_ip:
-                import ipaddress
                 ipaddress.IPv4Address(saved_ip)
                 self.psu_ip.setText(saved_ip)
         except ValueError:
