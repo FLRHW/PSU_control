@@ -49,3 +49,51 @@ def storage_forecast(output_path, duration_s, interval_s, readback_interval_s,
                 'The run is not blocked by this advisory.')
     except (OSError, ValueError, TypeError, OverflowError):
         return None
+
+
+class DiskSpaceMonitor:
+    """Read-only, rate-limited filesystem checks while an experiment runs.
+
+    Never raises into a PSU control or cleanup path. Cannot reserve space,
+    guarantee recording success, or safely infer that PSU outputs should
+    change when storage runs low.
+    """
+    def __init__(self, output_path, *, reserve_bytes=RESERVE_BYTES,
+                 check_interval_s=30.0, repeat_interval_s=300.0,
+                 disk_usage=shutil.disk_usage, monotonic=None):
+        import time
+        self.output_dir = Path(output_path).parent
+        self.reserve_bytes = reserve_bytes
+        self.check_interval_s = check_interval_s
+        self.repeat_interval_s = repeat_interval_s
+        self.disk_usage = disk_usage
+        self.monotonic = monotonic or time.monotonic
+        self.next_check_at = 0.0
+        self.next_warning_at = 0.0
+        self.last_free = None
+        self.low_space_seen = False
+
+    def check(self):
+        """Return a status warning only if low, or None; fail open."""
+        try:
+            now = self.monotonic()
+            if now < self.next_check_at:
+                return None
+            self.next_check_at = now + self.check_interval_s
+            self.last_free = int(self.disk_usage(self.output_dir).free)
+            if self.last_free < 0 or self.last_free > self.reserve_bytes:
+                return None
+            self.low_space_seen = True
+            if now < self.next_warning_at:
+                return None
+            self.next_warning_at = now + self.repeat_interval_s
+            free_mib = self.last_free / (1024 ** 2)
+            reserve_mib = self.reserve_bytes / (1024 ** 2)
+            return (
+                f'[STORAGE WARNING] Remaining output disk capacity {free_mib:.1f} MiB '
+                f'is at/below advisory reserve {reserve_mib:.0f} MiB. '
+                'Measurements and HTML reporting may fail if storage fills. '
+                'This warning does not stop the run or change PSU outputs. '
+                'Monitor storage and prepare a safe manual Stop if needed.')
+        except (OSError, ValueError, TypeError, OverflowError):
+            return None
