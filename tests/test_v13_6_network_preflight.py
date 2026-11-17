@@ -60,6 +60,36 @@ class PreflightTests(unittest.TestCase):
         self.assertFalse(any(word in args for args in commands for word in
                              ('add', 'replace', 'delete', 'modify', 'up', 'down')))
 
+    def test_disconnected_rigol_is_reported_even_without_route(self):
+        routes = [{'dst': '169.254.0.0/16', 'dev': 'enx0c3796303396'}]
+        addresses = [
+            {'ifname': 'enx0c3796303396', 'link_type': 'ether',
+             'addr_info': [{'family': 'inet', 'local': '169.254.51.8',
+                            'prefixlen': 16}]},
+            {'ifname': 'enp3s0f1', 'link_type': 'ether',
+             'addr_info': [{'family': 'inet', 'local': '169.254.10.1',
+                            'prefixlen': 16}]},
+            {'ifname': 'wlp4s0', 'link_type': 'ether',
+             'addr_info': [{'family': 'inet', 'local': '192.168.0.252',
+                            'prefixlen': 24}]},
+        ]
+        def runner(args, **kw):
+            if args[0] == 'ip':
+                return response(json.dumps(addresses if 'addr' in args else routes))
+            if args[:3] == ['nmcli', '-g', 'GENERAL.STATE']:
+                return response('30 (disconnected)' if args[-1] == 'enp3s0f1'
+                                else '100 (connected (externally))')
+            if args[:3] == ['nmcli', '-g', 'GENERAL.CONNECTION']:
+                return response('--' if args[-1] == 'enp3s0f1' else args[-1])
+            raise AssertionError(args)
+        report = preflight.persistence_preflight(runner=runner)
+        self.assertIn('One currently observed link-local interface', report)
+        self.assertIn('interfaces present without an active link-local route: enp3s0f1', report)
+        self.assertIn('Adapter enp3s0f1:', report)
+        self.assertIn('No current link-local route on this interface', report)
+        self.assertIn('30 (disconnected)', report)
+        self.assertNotIn('Adapter wlp4s0:', report)
+
     def test_saved_nm_host_route_is_not_flagged_unsaved(self):
         routes = [{'dst':'169.254.0.0/16','dev':'eth0'},
                   {'dst':'169.254.179.79','dev':'eth0'}]
