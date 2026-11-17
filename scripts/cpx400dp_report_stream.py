@@ -363,6 +363,9 @@ def generate(log_file, layout="separate", profile=None):
                 '<div class="controls">' + choices + '</div>' +
                 '<div class="toolbar"><button type="button" class="reset">Reset zoom</button>' +
                 '<button type="button" class="cursor">Cursors: OFF</button>' +
+                '<label class="hint">Jump to elapsed second <input class="jump-time" type="number" min="0" step="any" placeholder="Time (s)" style="width:112px"></label>' +
+                '<label class="hint">Window <input class="jump-span" type="number" min="0.00005" step="any" value="1" style="width:82px"> s</label>' +
+                '<button type="button" class="jump">Go</button>' +
                 '<span class="hint reading">Wheel to zoom · drag to pan · cursors for Δt/ΔV</span></div>' +
                 '<svg class="plot" viewBox="0 0 880 420" aria-label="Waveform plot"></svg>' +
                 '<p class="hint detail-state">Overview: extrema-preserving summary. Zoom in for full-resolution local chunks.</p>' +
@@ -575,6 +578,16 @@ document.querySelectorAll('.channel').forEach(panel=>{
   PANELS.set(ch,view);
   function mouseX(ev){const rect=svg.getBoundingClientRect();return (ev.clientX-rect.left)*880/rect.width;}
   panel.querySelector('.reset').onclick=()=>{view.range=null;view.cursors=[null,null];render(view);};
+  panel.querySelector('.jump').onclick=()=>{
+    const time=Number(panel.querySelector('.jump-time').value);
+    const requested=Number(panel.querySelector('.jump-span').value);
+    const maxT=Math.max(DATA.meta[ch].max_t,.0001);
+    if(!Number.isFinite(time)||!Number.isFinite(requested)||requested<.00005||
+       time<0||time>maxT)return;
+    const width=Math.min(maxT,requested);
+    const low=Math.max(0,Math.min(maxT-width,time-width/2));
+    view.range=[low,low+width];render(view);
+  };
   panel.querySelector('.cursor').onclick=ev=>{view.cursorMode=!view.cursorMode;ev.target.textContent='Cursors: '+(view.cursorMode?'ON':'OFF');render(view);};
   panel.querySelectorAll('input[data-series]').forEach(c=>c.onchange=()=>render(view));
   svg.addEventListener('wheel',ev=>{
