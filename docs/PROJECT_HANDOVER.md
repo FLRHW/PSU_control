@@ -1,5 +1,37 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Dedicated Rigol PC-side NM profile activated and route validated
+
+User created `Rigol-Direct` UUID
+`6b03df6c-928c-4b8f-b646-43146b8ca419` bound to
+`enp3s0f1` / MAC `18:3d:2d:3c:93:6d`,
+`ipv4.method=manual`, `192.168.70.1/24`,
+`ipv4.never-default=yes`, IPv6 disabled,
+`autoconnect=no` (initial staging). User activated it explicitly
+using `sudo nmcli connection up Rigol-Direct ifname enp3s0f1`.
+Command succeeded. `ip -br -4 addr` shows
+`enp3s0f1 UP 192.168.70.1/24`; NM reports state 100
+and active `Rigol-Direct`. Kernel routing of proposed scope
+destination `192.168.70.2` from host `192.168.70.1`
+selects `enp3s0f1`. PSU traffic `192.168.71.2`
+still selects D6000 `enx0c3796303396` from `192.168.71.1`;
+Wi-Fi default remains via `192.168.0.1` on `wlp4s0`.
+
+**Status:** PC-side Rigol interface/routing configuration PASS.
+Scope-side address `192.168.70.2/24` is PROPOSED and not yet
+reported applied. No ping to Rigol new address or Rigol application
+test yet, nor reconnection/reboot validation. Do not claim complete
+Rigol network migration. Next: from Rigol front panel
+`Utility → IO Setting → LAN Conf.`, set DHCP off,
+Auto IP off, Static IP on; address `192.168.70.2`, mask
+`255.255.255.0`, gateway zero/blank as interface permits;
+Apply; check current IP and ping. Rigol DS1000Z guide documents
+Power-on Recall=Last requirement for persistent manual addressing;
+verify choice and do not needlessly change other oscilloscope settings.
+After link success, enable Rigol-Direct autoconnect and test saved
+profile reactivation. PSU configuration remains unchanged.
+
+
 ## 2026-11-17 — Rigol /24 active-subnet conflict check PASS; profile preparation instructed
 
 User supplied live `ip -br -4 addr`, `ip -4 route show table all`,
