@@ -1,5 +1,39 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — Both instruments simultaneously reachable after Rigol NM down/up (PASS)
+
+User enabled `connection.autoconnect=yes` on `Rigol-Direct`
+UUID `6b03df6c-928c-4b8f-b646-43146b8ca419`, then explicitly
+deactivated and reactivated that profile on `enp3s0f1`.
+Both NM operations succeeded. Post-test:
+- Rigol NIC `enp3s0f1`: NM `Rigol-Direct`, state
+  `100 (connected)`, `192.168.70.1/24`.
+- Rigol `192.168.70.2` from `192.168.70.1`: 4/4 ICMP
+  replies (0% loss), min/avg/max = 0.196/0.276/0.330 ms.
+- D6000 PSU NIC `enx0c3796303396`: NM
+  `CPX400DP-Direct`, state `100 (connected)`.
+- PSU `192.168.71.2` from `192.168.71.1`: 4/4 ICMP
+  replies (0% loss), min/avg/max = 2.313/2.395/2.508 ms.
+- Wi-Fi internet default remained `via 192.168.0.1 dev wlp4s0
+  src 192.168.0.252`.
+
+**Validated:** both dedicated, saved NM profiles now connect and
+both instrument IPv4 addresses are reachable simultaneously;
+Rigol profile survives deliberate down/up (PSU profile separately
+passed earlier). The original unbound `Wired connection 2` was
+previously retained with autoconnect disabled. No changes to
+instrument electrical outputs or control source code.
+
+**Remaining:** no physical cable disconnect test; no host reboot
+or instrument power cycle persistence verified; no SCPI
+identity/control or Rigol waveform-capture test on the new
+addresses; no PSU GUI discovery/address persistence validation
+on 192.168.71.2. Next sensible step is read-only application
+identification tests with each direct IP, then reboot/link
+persistence checks when safe. Preserve stable main v13.5,
+and document hardware versus application testing separately.
+
+
 ## 2026-11-17 — Rigol new static IPv4 physically reachable (PASS)
 
 User configured DS1054Z LAN settings and reported sourced ping
