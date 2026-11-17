@@ -8,6 +8,16 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 
 ## Active priority: reliable network discovery and guided setup (v13.6)
 
+- [x] **Read-only persistence preflight in the GUI:** new **Assess persistence**
+  worker checks current IPv4 routes, addresses, NetworkManager state
+  and saved profile fields, warning about externally configured docks
+  and unsaved /32 host routes. It never changes host networking or
+  opens a PSU connection. Mock tests added; hardware test pending.
+- [ ] **Persistent-profile proposal and opt-in application:** use preflight
+  evidence to design a safe, reversible setup for PSU dock and Rigol
+  without breaking Wi-Fi. Explicit approval required for actual changes.
+
+
 - [x] **Defer independent DSRemote screen-thread fault** per user direction.
   DSRemote live display worked with PSU GUI open, including Wave Inspector,
   then stopped with `screen_thread.cpp line 783`; prior same error occurred
