@@ -1,5 +1,31 @@
 # Two-instrument Ethernet persistence — proposed plan (NOT APPLIED)
 
+## Preferred simplification (2026-11-17, NOT APPLIED)
+
+The user requested a less complex, standard setup. NIC hardware identities
+were confirmed read-only: built-in `enp3s0f1` MAC
+`18:3d:2d:3c:93:6d`; D6000 `enx0c3796303396` MAC
+`0c:37:96:30:33:96`. They are **host NIC MACs**, not instrument
+MACs. A preferable durable approach, if accepted, is to move both
+instruments to manual static IPv4 with two *different* /24 networks:
+
+| Link | Host (proposal) | Instrument (proposal) |
+| --- | --- | --- |
+| Rigol | `192.168.70.1/24` | `192.168.70.2/24` |
+| CPX400DP | `192.168.71.1/24` | `192.168.71.2/24` |
+
+Instrument manuals document static IP support; first verify the selected
+settings can be applied and recovered on each actual device. Configure
+separate **MAC/interface-bound** NM connections with `never-default=yes`,
+no gateway, autoconnect enabled; safely constrain/remove the old unbound
+profile's autoconnect after backing up its UUID; keep Wi-Fi unchanged.
+No host routes are required because these are non-overlapping networks.
+Stage each device change in a recoverable order with independent link tests,
+and explicitly approve any OS/instrument changes before running them.
+The earlier Auto-IP + /32 recipe remains a fallback for instruments whose
+IP cannot be changed, not the preferred design. All addresses above are
+**proposals**, NOT observations, and **nothing has been configured**.
+
 > **REVISED DIAGNOSIS — 2026-11-17: EARLIER COMMAND EXAMPLES ARE SUPERSEDED.**
 >
 > Saved profile `Wired connection 2` UUID `4158f5eb-2e6b-3274-8f74-bb2a48c41126`
