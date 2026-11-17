@@ -2,6 +2,8 @@
 import csv
 import json
 import re
+import shutil
+import subprocess
 import tempfile
 import tracemalloc
 import unittest
@@ -71,6 +73,20 @@ class StreamingReportTests(unittest.TestCase):
             self.assertIn('"p":[', doc)
             self.assertIn("39.0", doc)  # overview extrema preserve isolated peak
             self.assertIn(folder.name + "/c2_", doc)
+
+    @unittest.skipUnless(shutil.which("node"), "Node.js unavailable for JS syntax check")
+    def test_generated_viewer_javascript_parses(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "viewer_measurements.csv"
+            create_log(path, 9000)
+            html_file = generate(path, force_stream=True)
+            page = html_file.read_text(encoding="utf-8")
+            scripts = re.findall(r"<script(?:\\s[^>]*)?>(.*?)</script>", page, re.DOTALL)
+            self.assertEqual(len(scripts), 2)
+            script_path = Path(d) / "viewer.js"
+            script_path.write_text(scripts[-1], encoding="utf-8")
+            subprocess.run(["node", "--check", str(script_path)], check=True,
+                           capture_output=True, text=True)
 
     def test_empty_and_missing_channel_rejected(self):
         with tempfile.TemporaryDirectory() as d:
