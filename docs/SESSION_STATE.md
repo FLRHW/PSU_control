@@ -1,5 +1,35 @@
 # CPX400DP — current session state
 
+## 2026-11-17 — Host reboot persistence PASS; PSU GUI Test connection PASS
+
+User explicitly confirmed that the preceding dual-instrument `nmcli`,
+sourced ping and default-route checks were performed **after Kubuntu
+reboot**. The post-reboot report showed `Rigol-Direct` active on
+`enp3s0f1`, `CPX400DP-Direct` active on
+`enx0c3796303396`, Wi-Fi default via `wlp4s0`,
+Rigol `192.168.70.2` answering 4/4 pings from
+`192.168.70.1` and PSU `192.168.71.2` answering 4/4
+from `192.168.71.1`. **Host reboot persistence PASS,
+user-confirmed**; no further NetworkManager/IP changes needed
+absent new evidence.
+
+User also reports CPX400DP GUI **Test connection works** after manually
+entering `192.168.71.2`. This is user-reported live application
+connectivity at the new static PSU address. The exact `*IDN?`
+response and diagnostic log were not supplied; do not infer
+readback/runner/restore hardware tests from this brief connection
+test. Manual IP entry was required for this test; retain investigation
+of how the GUI remembers/prefills the new static IP and handles
+auto-discovery as a usability enhancement, not a network-blocker.
+
+**Outstanding gates:** Rigol waveform capture / identity test against
+`192.168.70.2` via `enp3s0f1`; instrument-side reboot persistence
+not yet confirmed; v13.6 software and offline CI to continue.
+No source modifications or host/instrument settings were performed
+during this documentation checkpoint. Stable `main` v13.5 and
+development `dev` remain distinct.
+
+
 ## 2026-11-17 — Both direct static links and Wi-Fi confirmed concurrently
 
 User supplied another read-only network report:
