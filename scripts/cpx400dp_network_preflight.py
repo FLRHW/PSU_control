@@ -21,6 +21,7 @@ def persistence_preflight(psu_host=None, *, runner=subprocess.run):
     routes = json.loads(_read(['ip', '-j', '-4', 'route', 'show', 'table', 'main'], runner))
     addresses = json.loads(_read(['ip', '-j', '-4', 'addr', 'show'], runner))
     links = {}
+    potential_ethernet = set()
     for item in addresses:
         nic = item.get('ifname')
         if nic:
@@ -29,6 +30,13 @@ def persistence_preflight(psu_host=None, *, runner=subprocess.run):
                    if a.get('family') == 'inet' and a.get('local')
                    and a.get('prefixlen') is not None]
             links[nic] = ips
+            # Include Linux Ethernet-style NIC names even if their link-local
+            # route disappeared while an instrument was powered off. Exclude
+            # Wi-Fi and non-Ethernet interfaces from this diagnostic candidate
+            # list. The heuristic is only for *display*, never configuration.
+            if (nic.startswith(('en', 'eth')) and
+                    item.get('link_type', 'ether') == 'ether'):
+                potential_ethernet.add(nic)
     direct = set()
     host_routes = []
     for route in routes:
@@ -56,10 +64,19 @@ def persistence_preflight(psu_host=None, *, runner=subprocess.run):
         lines.append('One currently observed link-local interface: ' + next(iter(direct)) + '.')
     else:
         lines.append('No active IPv4 link-local routes observed; power on and connect instruments.')
+    inactive = potential_ethernet - direct
+    if inactive:
+        lines.append('Ethernet interfaces present without an active link-local route: ' +
+                     ', '.join(sorted(inactive)) + '.')
+        lines.append('A missing route may reflect a disconnected/powered-off instrument '
+                     'or an interface configuration change; it is not proof the adapter '
+                     'or its NetworkManager profile no longer exists.')
     lines.append('')
-    for nic in sorted(direct):
+    for nic in sorted(direct | potential_ethernet):
         lines.append('Adapter ' + nic + ':')
         lines.append('  Active IPv4: ' + (', '.join(links.get(nic, [])) or '(none)'))
+        if nic not in direct:
+            lines.append('  No current link-local route on this interface.')
         try:
             state = _read(['nmcli', '-g', 'GENERAL.STATE', 'device', 'show', nic], runner)
             profile = _read(['nmcli', '-g', 'GENERAL.CONNECTION',
