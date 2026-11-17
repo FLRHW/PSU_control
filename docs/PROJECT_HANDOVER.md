@@ -1,5 +1,25 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-17 — First real static-IP PSU connectivity test PASS (temporary PC address)
+
+User verified `enx0c3796303396` holds both the old
+`169.254.10.1/16` (NetworkManager) and a **temporary** manually
+added `192.168.71.1/24`. `ip -4 route get 192.168.71.2
+from 192.168.71.1` selects `enx0c3796303396`.
+User's `ping -c 4 -I 192.168.71.1 192.168.71.2` returned
+**4/4 replies, 0% loss**, average 3.257 ms. This is positive
+physical connectivity evidence for the PSU at new proposed static
+IP `192.168.71.2`; it is NOT yet proof of HTTP/SCPI reachability,
+reboot persistence, or correct final DHCP/Auto-IP flag state.
+
+An earlier test failed because the temporary PC address had disappeared,
+likely on NetworkManager profile reactivation; the user re-added it
+successfully. **No persistent NetworkManager changes yet**, and the
+old generic unbound `Wired connection 2` is still a configuration
+hazard. Next: confirm HTTP page at 192.168.71.2, then stage a narrowly
+scoped hardware-bound saved dock profile with rollback, followed by
+Rigol migration, before any reboot acceptance testing.
+
 ## 2026-11-17 — PSU web Configure page visually confirmed (no changes)
 
 User supplied a screenshot of the live CPX Series CONFIGURATION PAGE.
