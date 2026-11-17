@@ -24,6 +24,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from cpx400dp_regulation import decode_limit_event
+from cpx400dp_storage import storage_forecast
 
 CONFIG_KEYS = {'host', 'channels', 'mode', 'interval_s', 'readback_interval_s', 'log_file', 'ch1_restore', 'ch2_restore', 'initial_ramp_s', 'final_ramp_s', 'progress_interval_s', 'generate_report', 'report_layout', 'abort_on_output_fault'}
 NUMBER = re.compile(r'^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([VA])?\s*$')
@@ -692,6 +693,11 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
     print(f'Progress heartbeat: every {progress_interval:g}s (wall clock); estimated profile duration {estimated_total:g}s')
     print(f'Smallest scheduled within-phase gap: {smallest_gap*1000:.3f} ms (not a guarantee of actual hardware-command spacing)')
     print(f'Measurement log: {log_path}')
+    # Read-only advisory before any PSU socket is opened or commands sent.
+    storage_warning = storage_forecast(
+        log_path, estimated_total, interval, rb_interval, len(channels))
+    if storage_warning:
+        print(storage_warning, flush=True)
     if overrides:
         print('GUI/CLI overrides (CSV unchanged): ' + ', '.join(
             f'{k}={v}' for k, v in sorted(overrides.items())))
