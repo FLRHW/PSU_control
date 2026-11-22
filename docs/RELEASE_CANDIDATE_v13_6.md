@@ -1,5 +1,53 @@
 # v13.6 release candidate — preparation notes
 
+## 2026-11-22 — Final restored-output display corrected on dev
+
+After direct inspection of the user-supplied 17:56 CSV, confirmed
+CH1 restored to **programmed 11.000 V / 3.530 A / ON**, with a
+separate post-restore **10.986 V physical voltage readback**.
+The GUI previously displayed **-0.01 V / 0.00 A** after completion,
+because it showed the last scheduled-profile readback (before
+restoration), thus misleadingly suggesting output was OFF.
+This is a UI correctness and safety-communication problem,
+not a fault in programmed-state restoration.
+
+Source fix in `scripts/cpx400dp_gui.py` uses existing
+logged CSV events `final_state_sent`,
+`final_state_verified`, `final_state_error`,
+`physical_output_checked`, `physical_output_warning`
+and `physical_output_skipped` to supersede stale profile
+readouts. After verification it shows the programmed
+V/current **limit** and output ON/OFF in the restoration
+status; after an actual physical voltage check it shows
+the post-restore **measured voltage**, explicitly saying
+current was **not sampled**. For a skipped physical check,
+shows programmed enable state and explicitly notes V/I
+were not sampled. Incomplete verification never retains
+a falsely reassuring pre-restoration measurement. Late
+profile readbacks/heartbeat messages cannot overwrite
+post-restoration state in the GUI. No additional SCPI
+calls, PSU queries or changes to runner restoration/
+LOCAL ordering. Nothing queries after LOCAL.
+
+New `tests/test_v13_6_final_display.py` exercises
+actual GUI polling and status logic via generated
+measurement CSV events including (a) 11 V / 3.53 A
+ON restore with 10.986 V actual readback preceded
+by stale -0.01 V, (b) restored OFF with physical check
+skipped, (c) final verification failure, and (d) late
+stale readback after verified restoration. Distinguishes
+measured output current from programmed current limit.
+
+**Implementation complete; record CI verdict separately.**
+Latest displayed state is based on the saved log and
+does not independently prove an ON/OFF front-panel state.
+Do not merge/tag `dev` to stable `main` without user
+approval. No further PSU hardware run required for this
+display-only correction; optional user GUI check after
+pulling dev can confirm final state text reflects the
+already-tested 11 V ON restoration.
+
+
 ## 2026-11-22 — Actual 17:56 upload verified against measurement CSV and HTML
 
 The user clarified that the **last follow-up message** attached both exact
