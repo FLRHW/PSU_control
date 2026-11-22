@@ -1,10 +1,37 @@
 # CPX400DP development backlog
 
-**Updated:** 2026-11-17. **Branch:** `dev`. **Stable baseline:** v13.5 on `main`.
+**Updated:** 2026-11-22. **Branch:** `dev`. **Stable baseline:** v13.5 on `main`.
 
 This file separates planned enhancements from implemented work. No entry below
 is evidence of hardware validation. Priorities may be reordered only with
 explicit agreement; keep existing safety/restore behaviour unchanged.
+
+## Latest v13.6 GUI improvements — initial offline validation
+
+- [x] **Profile Runner moving preview position (source and Qt offscreen
+  rendering tested):** magenta NOW marker over existing Matplotlib preview,
+  updated from existing runner [PROGRESS] heartbeat, interpolated at 200 ms,
+  subtracting initial ramp, freezing during Pause and clamping at 100%.
+  This is UI-only estimated position, not sub-millisecond SCPI timing.
+- [x] **Profile Runner CV/CC estimates (source and unit tests):** show
+  `CV likely`, `CC likely` or `UNKNOWN` alongside normal per-channel
+  measured V/I. Derive only from already logged setpoints/output states
+  and measured V/I, with no additional PSU queries. Clearly label
+  as V/I estimates, not instrument-verified live modes. Manual Control
+  retains separate LSR read-and-clear "last event" semantics.
+- [x] **15-ohm demo CSV:** an additional supervised CH1 90s profile
+  reaches 8 V (4.27 W nominal in 15 ohms) and includes a 6 V /
+  0.15 A current-limit interval to illustrate CC, followed by
+  release to 0.65 A to illustrate CV. No new hardware evidence for
+  this additional CSV yet; do not treat the previous run as testing it.
+- [ ] **Final 15-ohm GUI acceptance:** after pulling `dev`, inspect
+  magenta marker during profile and while paused, confirm sensible
+  `CV likely`/ `CC likely` text with suitable load, verify physical
+  original-state restoration/LOCAL. Avoid unnecessary extra runs.
+- [ ] **Actual screenshot publication:** user uploaded new step-mode
+  screenshots and an HTML report. The binary PNGs are not yet in
+  `docs/screenshots/` on GitHub; do not reference nonexistent paths.
+  Supplementary ZIP is available for manual upload.
 
 ## Current focus: verified PSU address persistence (v13.6)
 
