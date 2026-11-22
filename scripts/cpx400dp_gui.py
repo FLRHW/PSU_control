@@ -209,6 +209,7 @@ class Window(QMainWindow):
         self.last_progress_clock = None
         self.last_progress_elapsed = None
         self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
         self.pending_preview_refresh = False
         self._setting_defaults = {}
         self.preview_debounce = QTimer(self)
@@ -1286,10 +1287,21 @@ class Window(QMainWindow):
                 event = fields[col['event']]
                 if event not in ('readback', 'setpoint', 'initial_ramp',
                                  'final_ramp', 'manual_setpoint', 'pause_hold',
-                                 'output_transition', 'snapshot', 'final_state_sent'):
+                                 'output_transition', 'snapshot', 'final_state_sent',
+                                 'final_state_verified', 'final_state_error',
+                                 'physical_output_checked', 'physical_output_warning',
+                                 'physical_output_skipped'):
                     continue
                 ch = int(fields[col['channel']])
                 if ch not in self.channel_labels:
+                    continue
+                if event.startswith('final_state_') or event.startswith('physical_output_'):
+                    self.apply_final_measurement_event(
+                        ch, event,
+                        fields[col['set_voltage_v']].strip(),
+                        fields[col['current_limit_a']].strip(),
+                        fields[col['requested_enable']].strip(),
+                        fields[col['measured_voltage_v']].strip())
                     continue
                 if event != 'readback':
                     target = self.run_targets.setdefault(ch, {})
@@ -1312,10 +1324,58 @@ class Window(QMainWindow):
                     continue
                 v = float(fields[col['measured_voltage_v']])
                 a = float(fields[col['measured_current_a']])
-                self.channel_labels[ch].setText(f'{v:.2f} V   {a:.2f} A')
-                self.update_runner_regulation(ch, v, a)
+                if ch not in self.final_measurement_channels:
+                    self.channel_labels[ch].setText(f'{v:.2f} V   {a:.2f} A')
+                    self.update_runner_regulation(ch, v, a)
             except (ValueError, IndexError, csv.Error, KeyError):
                 continue
+
+    def apply_final_measurement_event(self, ch, event, voltage, limit, enabled, measured_voltage):
+        """Display verified programmed state separately from measured output.
+
+        This reads existing CSV events ONLY; no PSU commands or post-LOCAL
+        queries. Final programmed current limit is NOT a current measurement.
+        The physical check logs voltage only, never measured current.
+        """
+        label = self.channel_labels[ch]
+        restore = self.restore_labels[ch]
+        if event == 'final_state_sent':
+            self.final_measurement_channels.add(ch)
+            label.setText('Final output: awaiting verification')
+            return
+        if event == 'final_state_error':
+            self.final_measurement_channels.add(ch)
+            label.setText('Final output: NOT VERIFIED — check PSU')
+            return
+        if event == 'final_state_verified':
+            self.final_measurement_channels.add(ch)
+            state = {'1': 'ON', '0': 'OFF'}.get(enabled, 'UNKNOWN')
+            try:
+                v, a = float(voltage), float(limit)
+            except (ValueError, TypeError):
+                label.setText('Final programmed state VERIFIED; output measurement unavailable')
+                return
+            label.setText(f'Final output: {state} (programmed; V/I not yet sampled)')
+            restore.setText(f'Restoration: VERIFIED — {v:.2f} V / {a:.2f} A limit; output {state}')
+            restore.setStyleSheet('color: #16713e; font-weight: 650;')
+            return
+        if event == 'physical_output_checked':
+            self.final_measurement_channels.add(ch)
+            try:
+                mv = float(measured_voltage)
+            except (ValueError, TypeError):
+                label.setText('Post-restore voltage unavailable; current not sampled')
+                return
+            label.setText(f'Post-restore: {mv:.2f} V measured; current not sampled')
+            return
+        if event == 'physical_output_warning':
+            self.final_measurement_channels.add(ch)
+            label.setText('Post-restore voltage NOT CONFIRMED — check PSU')
+            return
+        if event == 'physical_output_skipped':
+            self.final_measurement_channels.add(ch)
+            state = {'1': 'ON', '0': 'OFF'}.get(enabled, 'UNKNOWN')
+            label.setText(f'Final output: {state} (programmed; V/I not sampled)')
 
     def clear_plots(self):
         while self.plots_layout.count():
@@ -1362,6 +1422,7 @@ class Window(QMainWindow):
         self.last_progress_elapsed = None
         self.last_progress_clock = None
         self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
         self.phase_label.setText('Phase: Idle')
         self.run_summary = ''
         self.success_summary = False
@@ -1439,6 +1500,7 @@ class Window(QMainWindow):
         self.profile_duration_s = run_info['duration_s']
         self.run_initial_ramp_s = run_info['initial_ramp_s']
         self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
         self.last_progress_elapsed = None
         self.last_progress_clock = None
         self.set_preview_progress(0.)
@@ -1634,8 +1696,9 @@ class Window(QMainWindow):
                 self.pause_btn.setText('▶ Resume')
                 self.pause_btn.setEnabled(True)
             for ch, values in progress['readings'].items():
-                self.channel_labels[ch].setText(
-                    f'{values["voltage_v"]:.2f} V     {values["current_a"]:.2f} A')
+                if ch not in self.final_measurement_channels:
+                    self.channel_labels[ch].setText(
+                        f'{values["voltage_v"]:.2f} V     {values["current_a"]:.2f} A')
             if not self.stopping and not self.paused:
                 self.status.setText(f'Running — {progress["elapsed_s"]:g} s elapsed, '
                                     f'~{progress["remaining_s"]:g} s remaining')
