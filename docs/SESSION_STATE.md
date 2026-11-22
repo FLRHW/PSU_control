@@ -1,5 +1,19 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — CV/CC label flicker fix fully offline validated
+
+GitHub Actions **45038456180 succeeded** on `dev` source at
+`583e3cd09f13587b4362d47231448abaffba7b76` with both
+Python offline suite and Chromium browser validation PASS.
+The new CSV cadence regression verifies that labels do not
+flicker to UNKNOWN between sparse readbacks; an explicit
+OFF immediately resets UNKNOWN, and CV/CC estimates change
+on actual new measured values. No PSU communication, current
+limit, safety or restore path was altered. The user still
+needs to pull the fixed GUI to see this correction;
+hardware visual validation of the post-fix UI remains pending.
+
+
 ## 2026-11-22 — Runner CV/CC label flicker: cause and minimal fix
 
 After new 15-ohm supervised test the user reported Profile Runner
