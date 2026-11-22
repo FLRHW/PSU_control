@@ -1,5 +1,46 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — Post-release KDE window/taskbar icon identity correction
+
+User observed that KDE Application Launcher shows the correct
+custom CPX400DP SVG, but running window/taskbar shows default
+Python icon. Root cause: application menu icon (Desktop Entry)
+and Qt window icon/application identity are independent.
+The GUI previously set only the descriptive application name
+and no QIcon or KDE desktop file identity.
+
+Applied desktop-integration-only changes to `main`:
+- `scripts/cpx400dp_gui.py` loads the existing
+  `assets/cpx400dp-control.svg` as both QApplication and
+  Window QIcon, for PySide6 and PyQt5. Sets the Qt application
+  name, Qt desktopFileName/Wayland app_id to
+  `cpx400dp-control`, matching the installed desktop
+  filename, with the human-readable display name
+  `CPX400DP Control`.
+- `scripts/install_desktop_launcher.py` adds
+  `StartupWMClass=cpx400dp-control` for X11 KDE window
+  matching. Existing installer is safely re-runnable and
+  updates an existing project-managed desktop file.
+- `tests/test_v13_6_desktop_launcher.py` checks desktop
+  WM class. Added
+  `tests/test_v13_6_qt_app_identity.py` to assert real
+  offscreen Qt application identity, non-null scalable SVG
+  window icon, and main-window icon assignment.
+- No PSU, socket, SCPI, profile, report or restoration
+  behavior changed. Plasma taskbar grouping must still
+  be visually checked on user's real Kubuntu session;
+  headless Qt CI cannot prove window-manager grouping.
+
+After pulling `main`, close the running GUI, rerun
+`/usr/bin/python3 scripts/install_desktop_launcher.py`,
+refresh Plasma via `kbuildsycoca6 --noincremental`
+if necessary, then start from KDE Application Launcher
+and pin the resulting CPX400DP application. An older
+pinned Python task may need unpinning and repinning.
+This post-v13.6 main-branch fix does **not** change
+the immutable published `v13.6` tag.
+
+
 ## 2026-11-22 — Post-v13.6 release icon refinement
 
 User approved new icon appearance: **remove outer blue border
