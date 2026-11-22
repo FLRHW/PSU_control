@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Dual-channel bench power supply">
+  <defs>
+    <linearGradient id="bg" x2=".92" y2="1"><stop stop-color="#175e9f"/><stop offset="1" stop-color="#08162c"/></linearGradient>
+    <linearGradient id="front" x2=".12" y2="1"><stop stop-color="#f0f7ff"/><stop offset=".95" stop-color="#8d9eaf"/></linearGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <rect x="4" y="4" width="248" height="248" rx="48" fill="url(#bg)" stroke="#2b9ce9" stroke-width="7"/>
+  <rect x="27" y="51" width="202" height="164" rx="22" fill="#101c31" opacity=".6"/>
+  <rect x="22" y="43" width="212" height="167" rx="21" fill="url(#front)" stroke="#f7fbff" stroke-width="3"/>
+  <rect x="35" y="63" width="87" height="63" rx="8" fill="#0a2232" stroke="#334b5e" stroke-width="3"/>
+  <rect x="135" y="63" width="87" height="63" rx="8" fill="#0a2232" stroke="#334b5e" stroke-width="3"/>
+  <path d="M42 110 H55 V99 H74 V87 H95 V102 H114" stroke="#10edd5" stroke-width="6" stroke-linejoin="round" fill="none" opacity=".6" filter="url(#soft)"/>
+  <path d="M42 110 H55 V99 H74 V87 H95 V102 H114" stroke="#12f1d8" stroke-width="3.4" stroke-linejoin="round" fill="none"/>
+  <path d="M142 110 H154 L173 89 H193 L213 110" stroke="#13e6cf" stroke-width="6" fill="none" opacity=".6" filter="url(#soft)"/>
+  <path d="M142 110 H154 L173 89 H193 L213 110" stroke="#13e6cf" stroke-width="3.4" fill="none"/>
+  <circle cx="56" cy="145" r="5" fill="#12c6f4"/><circle cx="200" cy="145" r="5" fill="#ffcf38"/>
+  <circle cx="80" cy="166" r="18" fill="#d2dce8" stroke="#536578" stroke-width="6"/>
+  <circle cx="176" cy="166" r="18" fill="#d2dce8" stroke="#536578" stroke-width="6"/>
+  <path d="M80 164 l8 -9 M176 164 l8 -9" stroke="#31485c" stroke-width="4" stroke-linecap="round"/>
+  <rect x="112" y="142" width="32" height="36" rx="9" fill="#12253b"/>
+  <path d="M128 148 v13 M120 153 a11 11 0 1 0 16 0" fill="none" stroke="#48eb55" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="59" cy="195" r="9" fill="#e72639" stroke="#941327" stroke-width="3"/>
+  <circle cx="100" cy="195" r="9" fill="#18202b" stroke="#556273" stroke-width="3"/>
+  <circle cx="156" cy="195" r="9" fill="#e72639" stroke="#941327" stroke-width="3"/>
+  <circle cx="197" cy="195" r="9" fill="#18202b" stroke="#556273" stroke-width="3"/>
+</svg>
