@@ -1535,6 +1535,7 @@ def main():
     log_path = log_path.with_name(f'{log_path.stem}_{run_id}{log_path.suffix}')
     previous_mtime = log_path.stat().st_mtime_ns if log_path.exists() else None
     code = 0
+    recording_failed = False
     try:
         connection_options = {}
         if args.psu_ip is not None: connection_options['psu_ip'] = args.psu_ip
@@ -1543,6 +1544,12 @@ def main():
         if args.pause_control_socket: connection_options['pause_control_socket'] = args.pause_control_socket
         code = execute(profile, output_dir=args.output_dir, overrides=overrides,
                        run_id=run_id, **connection_options)
+    except RecordingWriteFailure as exc:
+        recording_failed = True
+        print(f'ERROR: Measurement recording failed: {exc}. '
+              'Automatic report omitted; retain partial CSV for forensic audit.',
+              file=sys.stderr, flush=True)
+        code = 1
     except KeyboardInterrupt:
         print('INTERRUPTED: Ctrl+C during setup or cleanup; PSU final state is not guaranteed. Check the instrument.', file=sys.stderr)
         code = 130
@@ -1551,7 +1558,9 @@ def main():
         code = 1
     # Plotting happens in a separate process only after the instrument run has
     # finished. A reporting problem never alters the run's return code.
-    if report_cfg['generate_report'] == 'true' and log_path.exists() and (previous_mtime is None or log_path.stat().st_mtime_ns != previous_mtime):
+    if (not recording_failed and report_cfg['generate_report'] == 'true' and
+            log_path.exists() and
+            (previous_mtime is None or log_path.stat().st_mtime_ns != previous_mtime)):
         # The initial snapshot may fail before any channel readings or profile
         # events are logged. That is a valid failed run, not a plotting error.
         try:
