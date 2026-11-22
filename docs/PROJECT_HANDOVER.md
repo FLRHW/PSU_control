@@ -1,5 +1,60 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — Runner CV/CC label flicker: cause and minimal fix
+
+After new 15-ohm supervised test the user reported Profile Runner
+regulation label was UNKNOWN for virtually the whole run, and
+preferred removing it if unreliable. Uploaded screenshots include
+a PAUSED frame at ~26% showing CV likely, demonstrating the
+calculation can work briefly. Inspection of the source revealed
+a deterministic UI bug: CSV `setpoint` rows appear every 50ms,
+but `readback` rows only every 250ms. The GUI called
+`update_runner_regulation(ch)` with no measured values on
+**every** non-readback setpoint; the estimator therefore
+reset to UNKNOWN 50ms after almost every successful readback.
+The user saw an almost permanent UNKNOWN indicator even in
+valid CV operation. Fix on dev: defer regulation UI updates
+on setpoint changes until the next measured readback; update
+immediately to UNKNOWN on a commanded explicit output OFF,
+and continue clearing on run finish. This preserves conservative
+measurement-only semantics with no additional PSU communications.
+
+New `test_csv_setpoint_heartbeat_does_not_flicker_mode_to_unknown`
+executes the real GUI CSV poll method on a generated sample
+measurement log with ON + 4V/0.65A setpoint, 3.98V/0.27A
+readback (CV likely), five subsequent 50ms HOLD/setpoints
+(no label reset), next 6V/0.15A setpoint plus 2.25V/0.15A
+readback (CC likely), and explicit OFF (UNKNOWN). Confirm full
+GitHub CI before marking offline-passed.
+
+Real 15-ohm run HTML uploaded
+`hardware_demo_90s_15ohm_report_20261122_152131_904777.html`:
+COMPLETED; 578 successful readbacks, 0 failed;
+0.949ms max logged setpoint lateness; LOCAL sent;
+CH1 programmed final state VERIFIED and sampled
+physical output MATCHED; 1 unexplained high readback
+and 1 expected-settling readback; experiment health
+WARNING. Peak sampled power 8.09W, average 1.41W,
+estimated energy 203.3J. Readable embedded plot-data
+identifies that peak at t=0.02197s with 10.982V and
+0.737A, during the initial ramp from user's previous
+11V state (NOT the designed 8V plateau). At 15 ohms,
+this is about 8.0W, below resistor's rated 10W continuous,
+but demonstrates *preexisting PSU settings* are relevant
+to power budget. Do not claim entirely warning-free run;
+do not infer a physical LOCAL observation from the
+HTML 'LOCAL SENT' marker; prior separate user physical
+LOCAL validation remains valid only for earlier run.
+
+No new hardware run is strictly required to validate
+the bug fix if UI evidence is otherwise sufficient;
+if desired, one brief supervised exercise can confirm
+the indicator remains stable, respecting previous PSU
+starting output state. If further unreliable readings
+are reported, prefer hiding/removing the runner label
+rather than displaying misleading UNKNOWN continuously.
+
+
 ## 2026-11-22 — New runner GUI features offline CI PASS
 
 Full GitHub Actions workflow **45037162075** succeeded on
