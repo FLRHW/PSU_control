@@ -1,0 +1,35 @@
+name: Publish approved v13.6 GitHub Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-v13.6.yml'
+permissions:
+  contents: write
+jobs:
+  release:
+    if: github.repository == 'FLRHW/PSU_control' && github.event.head_commit.message == 'ci: publish approved v13.6 release'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Verify exact validated merge ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "06d504ba7d947831815663f4f84034ad9078f2ff"
+          test -f docs/RELEASE_v13_6.md
+          echo 'Exact approved PR merge is parent of release metadata commit.'
+      - name: Publish GitHub release and tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v13.6 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo 'Release already published'; exit 0; fi
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v13.6" >/dev/null 2>&1; then echo 'Refusing to reuse existing tag'; exit 1; fi
+          gh release create v13.6 --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title 'CPX400DP Control v13.6' --notes-file docs/RELEASE_v13_6.md --latest
+          gh release view v13.6 --repo "$GITHUB_REPOSITORY" --json url,tagName,isDraft,isPrerelease
