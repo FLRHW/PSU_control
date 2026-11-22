@@ -1,5 +1,89 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — Stage A offline reliability and v13.6 release preparation
+
+User explicitly authorised completing all feasible offline development
+and validation on `dev`, then delivering **one optimised hardware
+checklist**, with CSV profiles for future README screenshots. Stable
+`main` remains v13.5 and MUST NOT be changed/merged/tagged before
+explicit approval. User local untracked `profiles/18.csv` is not
+modified. Independent Rigol_capture repository remains untouched.
+
+**Source changes:**
+- Runner `scripts/cpx400dp_run_enhanced.py`: new
+  `RecordingWriteFailure` exception and guarded `log()` boundary.
+  The first real CSV `writerow()` or `flush()` exception during
+  normal execution aborts into the existing `finally` restoration.
+  During cleanup, subsequent log writes are disabled after first
+  failure so a disk exception cannot suppress configured
+  `finish_channels()`, physical readback or last `LOCAL` send.
+  Nonzero result and explicit incomplete-recording warning; do not
+  auto-report incomplete measurement CSV. The discovery event was
+  moved inside the cleanup-protected try. Nested diagnostic handlers
+  cannot silently continue once a logging failure has been recorded;
+  heartbeat checks fail the run. End summary never reports success
+  if CSV writing failed. No new SCPI commands or changed restore
+  targets, setpoint timing or NetworkManager configuration.
+- Post-run CSV report eligibility test uses a streaming
+  `any(DictReader(...))` instead of loading every CSV event.
+- Offline read-only `scripts/cpx400dp_archive.py`: opt-in ZIP
+  containing raw measurement CSV, matching HTML report, associated
+  `_report_data` JS chunk folder and optional console log;
+  SHA-256 manifest and verified ZIP, no source deletion, no
+  overwrite, atomic publish via hardlink on supported Linux FS.
+  This is NOT an automatic retention policy or crash backup.
+- `tests/test_v13_6_log_write_failures.py`: simulated ENOSPC
+  failure during active setpoint logging, cleanup
+  `final_state_verified`, and post-LOCAL command summary;
+  mocks enforce final restoration before final LOCAL and nonzero
+  failure. Expanded offline example tests and archive tests.
+- `tests/browser_report_smoke.py` and new
+  `browser_report` job in `.github/workflows/offline-tests.yml`:
+  install temporary Chromium/Playwright in GitHub Actions ONLY,
+  generate synthetic 1000-hour CSV, open HTML via file://,
+  jump to 50 ms peak at t=3599950.05, assert local chunk load,
+  measured V axis peak and cursors, and upload a 5-day
+  SYNTHETIC browser screenshot artifact. No user-local
+  dependency changes. Headless browser and Python suites
+  both passed previously on run `45033144797`.
+- Screenshot-oriented `profiles/examples/release_demo_90s_preview.csv`:
+  dual-channel OFF-output 90s GUI preview, never needs PSU.
+  `profiles/examples/hardware_demo_90s_REQUIRES_LOAD.csv`:
+  optional supervised CH1 0-3 V / 0.10 A 90s run, originally
+  OFF state restored; requires suitable resistor. These are
+  clearly distinct and not to be mistaken for a 1000h
+  hardware test.
+
+**Release preparation:** README rewritten to reflect actual
+features, report companion files and known limits. Added
+`docs/HARDWARE_ACCEPTANCE_v13_6.md` (single supervised
+90s hardware session + optional screenshots), and
+`docs/RELEASE_CANDIDATE_v13_6.md` (release gates,
+comparison/review requirements, no-merge policy).
+`docs/RECORDING_RECOVERY.md` now documents checked archiving;
+`docs/BACKLOG.md` separates complete offline gates from
+remaining hardware and release blockers.
+
+**Validation classification:** offline CI success is **not**
+live PSU/ENOSPC or power-loss validation. Prior verified
+address persistence and live IDN remain genuine user
+hardware evidence. Screenshot artifact is synthetic and
+must be labelled as such; user desktop/real run screenshot
+assets have not been supplied and must not be invented.
+No automatic backup/retention deletion or unattended
+multi-day safety guarantee.
+
+**Next action after final CI:** check full Python + Chromium
+jobs both PASS on latest `dev` SHA, update CI evidence.
+User should do only one supervised 90-second load test
+if hardware acceptance is desired, with optional brief
+pause/manual/resume and screenshot capture during same
+session. Verify physical final V/A/enable state and LOCAL
+on actual front panel and send concise results; no
+41-day test, disk-fill or unsafe power interruption.
+Await explicit approval before `dev` -> `main` merge.
+
+
 ## 2026-11-17 — Recording-audit hardware-log acceptance and classification refinement
 
 User ran new read-only `cpx400dp_recording_audit.py` on
