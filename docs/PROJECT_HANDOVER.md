@@ -1,5 +1,42 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — v13.6 release authorisation; KDE launcher installation
+
+User explicitly approved releasing v13.6 **after adding a KDE
+application launcher and icon**. New scalable artwork:
+`assets/cpx400dp-control.svg` with two waveform displays and
+dual-output front-panel controls. New no-dependency,
+user-local `scripts/install_desktop_launcher.py`:
+`/usr/bin/python3 scripts/install_desktop_launcher.py`.
+It derives the actual repository checkout directory and the
+invoking Python interpreter, installs a `.desktop` application
+menu entry and scalable icon under `XDG_DATA_HOME` (or
+`~/.local/share`), and supports `--dry-run` and
+`--uninstall`. It refuses to overwrite unrelated desktop
+entries, and preserves user-modified icon files on uninstall.
+No root privileges, PSU I/O or changes to NetworkManager.
+To add to KDE Favorites or taskbar, use Plasma context menus.
+Moving the project checkout requires rerunning the installer.
+
+`tests/test_v13_6_desktop_launcher.py` exercises installing,
+reinstalling, dry-run, uninstall, spaces in repository paths,
+Exec quoting and protection of unrelated user files; CI
+pending at the time of authoring. README now presents user
+installation, actual v13.6 feature summary, and icon.
+Added `docs/RELEASE_v13_6.md`; previous source reliability,
+hardware CV/CC and final-output display validation remains
+documented above and in the release candidate evidence.
+
+**Release gate:** run full Python and Chromium CI on
+final source commit; inspect divergence of main and dev,
+merge via PR with no forced history rewrite, verify
+main CI and repository release publication. Do not
+claim a GitHub tag or release unless explicitly verified.
+GitHub Connector may support PR merge but not tag creation
+or release publishing, in which case provide the exact
+remaining authenticated `gh` commands.
+
+
 ## 2026-11-22 — Final-state GUI correction offline CI acceptance
 
 **PASS:** GitHub Actions run `45053486901` on `dev`
