@@ -37,6 +37,23 @@ class DesktopLauncherTests(unittest.TestCase):
             handle.start()
             self.addCleanup(handle.stop)
 
+    def test_project_icon_is_black_without_blue_background_or_border(self):
+        import xml.etree.ElementTree as ET
+        icon_file = ROOT / "assets" / "cpx400dp-control.svg"
+        svg = icon_file.read_text(encoding="utf-8")
+        root = ET.fromstring(svg)
+        self.assertTrue(root.tag.endswith("svg"))
+        backgrounds = [node for node in root
+                       if node.tag.endswith("rect") and
+                       node.get("x") == "0" and node.get("y") == "0" and
+                       node.get("width") == "256" and node.get("height") == "256"]
+        self.assertEqual(len(backgrounds), 1)
+        self.assertEqual(backgrounds[0].get("fill"), "#000000")
+        self.assertNotIn("#2b9ce9", svg)
+        self.assertNotIn("#175e9f", svg)
+        self.assertNotIn("#08162c", svg)
+        self.assertIn('id="front"', svg)
+
     def test_install_reinstall_and_uninstall_are_safe(self):
         installer.install(Path(sys.executable))
         entry, installed_icon = installer.xdg_paths()
