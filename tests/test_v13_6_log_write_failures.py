@@ -66,17 +66,17 @@ time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable
             output = io.StringIO()
             stderr = io.StringIO()
             with patch('cpx400dp_discovery.connect_psu',
-                       return_value=(DummySocket(), '192.168.71.2', 'eth0')), \\
+                       return_value=(DummySocket(), '192.168.71.2', 'eth0')), \
                  patch.object(runner, 'verify_initial_snapshot',
-                              return_value=({1:(0.0,0.1,0)}, b'')), \\
-                 patch.object(runner, 'measure', return_value=((0.0,0.0), b'')), \\
+                              return_value=({1:(0.0,0.1,0)}, b'')), \
+                 patch.object(runner, 'measure', return_value=((0.0,0.0), b'')), \
                  patch.object(runner, 'send',
-                              side_effect=lambda sock, cmd: send_commands.append(cmd)), \\
-                 patch.object(runner, 'finish_channels', side_effect=fake_finish), \\
-                 patch.object(runner, 'collect_diagnostics', return_value=(b'', {})), \\
+                              side_effect=lambda sock, cmd: send_commands.append(cmd)), \
+                 patch.object(runner, 'finish_channels', side_effect=fake_finish), \
+                 patch.object(runner, 'collect_diagnostics', return_value=(b'', {})), \
                  patch.object(runner, 'verify_physical_outputs',
-                              return_value=({1:'NOT CHECKED'}, b'')), \\
-                 patch.object(runner.csv, 'DictWriter', BrokenWriter), \\
+                              return_value=({1:'NOT CHECKED'}, b'')), \
+                 patch.object(runner.csv, 'DictWriter', BrokenWriter), \
                  contextlib.redirect_stdout(output), contextlib.redirect_stderr(stderr):
                 with self.assertRaises(runner.RecordingWriteFailure):
                     runner.execute(profile, run_id='offline', psu_ip='192.168.71.2')
