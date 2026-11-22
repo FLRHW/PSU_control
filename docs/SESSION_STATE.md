@@ -1,5 +1,48 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — Stage A final offline acceptance PASS (release-candidate source)
+
+**GitHub Actions run 45033881762: SUCCESS**, on exact `dev`
+commit `063b23563ed123d2a45b775c500d3f3955af319e`.
+Both independent jobs finished successfully: **Python offline
+suite** (including active/cleanup/post-LOCAL simulated CSV
+write failures, verified ZIP archiving with missing-sidecar
+rejection, long preview profiles, existing socket/restoration
+regressions) and **headless Chromium large-report browser**
+(file:// local chunk load, synthetic 1000h/50ms peak and cursor).
+The browser job saved a 5-day retention screenshot artifact;
+its content is SYNTHETIC and not PSU hardware evidence.
+Earlier transient CI failures were fixed (browser test SVG
+API and legacy assertion scope). Superseded/stranded older
+workflow runs were isolated by versioning the CI concurrency
+group; final source SHA is fully tested.
+
+**Remaining release gates:** one supervised 90-second CH1
+0-3 V / 0.10 A hardware demo with appropriate resistor and
+actual front-panel original-state restoration/LOCAL check;
+CV/CC live mode validation is optional and must never be
+claimed from offline LSR event tests. User may take screenshots
+during the same short session; no actual user screenshots
+have been supplied. There is no hardware power-loss,
+physically full-disk, multi-hour or 1000-hour endurance claim.
+
+**Branch comparison verified:** `dev` is 235 commits
+ahead of stable `main`, but behind by one v13.5 release
+merge commit (`7d5b393`). Do not assume fast-forward
+or rebase casually; prepare/review a standard PR when
+user approves. `main` was confirmed unchanged at
+`7d5b3931404a9630c0343808e3ac7f695b289516`.
+No merge or tag has been created. Retain user-local
+untracked `profiles/18.csv` untouched.
+
+**Next user action:** instructions are consolidated in
+`docs/HARDWARE_ACCEPTANCE_v13_6.md`. One short test with
+optional pause/manual/resume is enough for this revision.
+After reporting results and approved screenshots, update
+README with actual evidence and request explicit release
+approval before main merge.
+
+
 ## 2026-11-22 — Stage A offline reliability and v13.6 release preparation
 
 User explicitly authorised completing all feasible offline development
