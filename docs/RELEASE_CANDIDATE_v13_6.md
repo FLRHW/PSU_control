@@ -1,5 +1,37 @@
 # v13.6 release candidate — preparation notes
 
+## Post-fix GUI acceptance — 22 November 2026, 17:56 UTC
+
+Eight user-supplied real screenshots of the 15-ohm experiment
+visually confirm the magenta NOW marker moves through the
+step-profile preview, and the runner's conservative
+V/I-derived regulation indicator reports `CV likely`
+(3.99 V / 0.27 A) and `CC likely` (2.26 V / 0.15 A)
+at appropriate phases. Thus the previous persistent UNKNOWN
+bug is **hardware visually validated as resolved**.
+No separate PSU CV/CC status query was added.
+
+The completion screenshot and final HTML report summary record
+COMPLETED, 495 successful readbacks, 0 failed, 2.073 ms
+max logged setpoint lateness, 0 output-health warnings,
+0 unexplained high readbacks, 3 expected-settling readbacks,
+health OK, physical output MATCHED, CH1 programmed final
+state VERIFIED and LOCAL command SENT. The chart shows
+8.06 W peak, 2.10 W mean, 259.4 J energy estimate.
+An optional paused Manual Control screenshot records
+CH1 10.00 V / 2.00 A programmed, measured 9.99 V /
+0.67 A, demonstrating temporary manual overrides; do
+not conflate this with the demo CSV's programmed maxima.
+
+The current-turn screenshots are NOT uploaded as
+`docs/screenshots` binary files in GitHub. Report HTML/CSV
+for this latest 17:56 run has not been independently parsed
+from a new uploaded file in this turn; reported figures
+are transcribed from user screenshots. Prior direct
+physical LOCAL confirmation was from an earlier run.
+No release/merge/tag authorised; main remains v13.5.
+
+
 ## Hardware and screenshot evidence — 22 November 2026
 
 The user completed the supervised 90-second CH1 demonstration,
