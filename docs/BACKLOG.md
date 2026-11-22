@@ -196,7 +196,21 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
 - [ ] Evaluate whether a supervised 30-second Auto-IP wait/retry improves
   first connection after PSU power-up, without blocking the GUI.
 
-## Deferred: long-duration experiments and reporting
+## Long-duration experiments, offline hardening and release preparation
+
+- [x] **Release-candidate plan and minimal bench checklist:** documents
+  RELEASE_CANDIDATE_v13_6.md and HARDWARE_ACCEPTANCE_v13_6.md.
+  No main merge or release tag without explicit user approval.
+- [x] **Screenshot-friendly fixture profiles:** 90 s dual-channel
+  OFF-output preview, and a separate 90 s current-limited
+  CH1-only live demo requiring a suitable resistive load.
+- [ ] **Final supervised hardware acceptance:** one short 90 s live
+  demo with programmed state restoration/LOCAL confirmation, optional
+  pause/manual/resume. Screenshot capture as part of this run.
+- [ ] **Final release decision:** audit dev changes, review evidence,
+  obtain approval to merge dev into main and tag v13.6.
+
+## Historical and remaining long-duration items
 
 - [x] **Runtime storage warning (source implemented):** add read-only
   30-second-poll free-space check during runner heartbeat; when output
@@ -214,15 +228,19 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   Tests validate profile parsing and safe-off keyframes. Synthetic
   approximately 120k-row mock 1000h CSV and 50ms peak supplied in a
   downloadable ZIP (not committed due to size).
-- [ ] **Full-disk write failure robustness:** existing CSV flush
-  errors can still disrupt log/cleanup calls; design and test a
-  safety-preserving error pathway before making unattended recording
-  claims. Do not change critical PSU restoration logic based only
-  on mocked tests.
-- [ ] **Durable retention and recovery:** select operator-approved
-  backup and age/size retention policy, then introduce opt-in cleanup
-  only with explicit safeguards. Abrupt PC shutdown cannot guarantee
-  PSU state from CSV records alone.
+- [x] **CSV write/flush failure containment (offline-tested):** active
+  logging failures abort into configured cleanup; cleanup logging
+  failures do not stop final restoration/LOCAL attempts; recording
+  exits nonzero and auto-report is skipped if CSV is incomplete.
+  Fault injection covers active writes, final-state logging and
+  post-LOCAL summary logging, with LOCAL last and restoration attempted.
+  Still not a physical disk-full, crash or PSU-power-loss validation.
+- [x] **Opt-in archive retention (offline):** new
+  scripts/cpx400dp_archive.py packs raw measurement CSV, matching
+  report HTML, sidecar chunk folder and console log, generates
+  checksum manifest, verifies ZIP and never deletes/overwrites
+  original recordings. No scheduled deletion or automatic cleanup
+  policy. Multi-day backup strategy remains an operator decision.
 
 
 - [x] **Advisory pre-run disk-capacity forecast (source implemented):**
@@ -248,17 +266,21 @@ explicit agreement; keep existing safety/restore behaviour unchanged.
   time-window navigation are included. See REPORT_STREAMING.md.
   Full-suite CI and desktop-browser acceptance recorded separately.
   This does NOT make report storage or runtime disk monitoring bounded.
-- [ ] **Large-report browser visual acceptance:** inspect a synthetic long
-  recording offline, zoom into a brief spike near the end, confirm
-  detail chunks load from file:// and preserve exact sample timing,
-  step transitions and cursor measurements. CI syntax/memory checks
-  are not proof of real desktop-browser behaviour.
+- [x] **Real-browser synthetic acceptance (CI):** Chromium Playwright
+  opens file:// streaming report, navigates directly to an isolated
+  synthetic 50 ms transient near 1000h, loads detail JS files,
+  checks plotted peak, cursor operation and console errors.
+  CI uploads a short-lived synthetic screenshot artifact. This is
+  synthetic data only; operator screenshots and real hardware
+  endurance remain separate acceptance gates.
 - [ ] **Large-report robustness and retention:** design automatic old-data
   cleanup/retention, ensure complete report+data-folder archival,
   and consider storing compact indexed data in fewer files for
   many-day high-rate readbacks.
-- [ ] Verify short-time-span zoom (including 50 ms events) on very long
-  recordings without losing peaks, transitions or timing accuracy.
+- [x] **50 ms zoom smoke-tested in real headless browser:** synthetic
+  1000-hour file/report with 50 ms peak, local detail loading and
+  viewport axis scaling; real measurement data and human screenshot
+  review remain optional.
 - [ ] Define log-retention, disk-space monitoring, resilience to abrupt host
   shutdown/USB/network errors and bounded report memory usage.
 - [ ] Perform controlled multi-hour hardware endurance testing before
