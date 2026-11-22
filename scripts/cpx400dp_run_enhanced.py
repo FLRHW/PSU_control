@@ -990,6 +990,11 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 heartbeat(phase, force=True)
         def heartbeat(phase, force=False):
             nonlocal next_progress_at
+            # A nested diagnostic handler may have caught the original
+            # RecordingWriteFailure. Never continue scheduling a profile after
+            # recording has become unwritable.
+            if logging_error is not None and not cleanup_active:
+                raise RecordingWriteFailure('Recording incomplete: ' + logging_error)
             # Called throughout profile, pauses, and ramps. The monitor rate
             # limits itself and suppresses probe errors, including in cleanup.
             disk_warning = disk_monitor.check()
@@ -1427,7 +1432,9 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                     f'mean_tcp_send_ms={optimizer.total_send_ms/max(1,optimizer.groups):.4f}; '
                     f'max_tcp_send_ms={optimizer.max_send_ms:.4f}; '
                     'TCP duration is not instrument processing time'))
-                stats['status'] = ('ERROR — cleanup not fully verified' if cleanup_errors
+                stats['status'] = ('ERROR — recording incomplete; cleanup status in console'
+                                   if logging_error is not None else
+                                   'ERROR — cleanup not fully verified' if cleanup_errors
                                    else 'ABORTED (output fault) — cleanup verified' if fault_abort
                                    else 'INTERRUPTED — cleanup verified' if interrupted
                                    else 'COMPLETED — cleanup verified' if profile_finished
