@@ -66,6 +66,7 @@ class DesktopLauncherTests(unittest.TestCase):
         self.assertIn('Path=' + str(self.root), text)
         self.assertIn('Icon=' + str(installed_icon), text)
         self.assertIn('Terminal=false', text)
+        self.assertIn('StartupWMClass=cpx400dp-control', text)
         self.assertIn(installer.MANAGED_MARKER, text)
         installer.install(Path(sys.executable))
         installer.uninstall()
