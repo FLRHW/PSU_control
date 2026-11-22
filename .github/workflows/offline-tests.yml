@@ -57,7 +57,7 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: scripts
-      CPX_BROWSER_SCREENSHOT_DIR: ${{ runner.temp }}/cpx-browser-artifacts
+      CPX_BROWSER_SCREENSHOT_DIR: /tmp/cpx-browser-artifacts
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -75,6 +75,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cpx400dp-synthetic-report-browser
-          path: ${{ runner.temp }}/cpx-browser-artifacts/
+          path: /tmp/cpx-browser-artifacts/
           if-no-files-found: ignore
           retention-days: 5
