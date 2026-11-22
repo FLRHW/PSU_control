@@ -1,5 +1,75 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — Post-fix 15-ohm GUI hardware validation (17:56 run)
+
+User provided eight fresh screenshots of the 90-second supervised
+`hardware_demo_90s_15ohm_REQUIRES_LOAD.csv` test after the CV/CC
+display-cadence fix. The images show:
+- Magenta **NOW** marker at ~7 s (~7%), ~26 s (~28%),
+  ~44 s (~47%), and finally at the 90 s endpoint (~100%).
+  Marker visibly advances along the step-profile preview,
+  including during the low-current interval. A separate explicit
+  screenshot proving it held *stationary throughout* pause is
+  not supplied in this set.
+- CH1 **CV likely (V/I estimate)** at 3.99 V / 0.27 A around
+  26 s, and **CC likely (V/I estimate)** at 2.26 V / 0.15 A
+  around 44 s. These are physically consistent with the
+  15-ohm resistor and the CSV's 6 V / 0.15 A current-limit
+  interval (nominal 2.25 V under CC). This constitutes visual
+  hardware acceptance of the **post-fix** conservative
+  estimation display, not an independently queried hardware
+  CV/CC operating-mode register.
+- Paused-profile Manual Control shows CH1 measured 9.99 V /
+  0.67 A, programmed 10.00 V / 2.00 A, output ON and
+  `CV (last event)`; these are user-commanded temporary
+  manual values, not the example CSV's 8 V / 0.65 A maximum.
+  At 15 ohms, 10 V produces ~6.67 W, still below the
+  stated resistor continuous rating if load/rating are
+  as supplied.
+- Completion screenshot: "Completed — restoration verified",
+  GUI process exited with code 0; final CH1 measured
+  -0.01 V / 0.00 A; restored-state label VERIFIED; moving
+  marker at 100%. These are software readbacks, not
+  independent confirmation of front-panel programmed V/I.
+- Final report summary screenshot:
+  `hardware_demo_90s_15ohm_report_20261122_175652_376088.html`,
+  run started 17:56:52 UTC: status COMPLETED;
+  **495 successful readbacks**, **0 failed**, maximum logged
+  setpoint lateness **2.073 ms**, output-health warnings 0,
+  unexplained high readbacks 0, expected-settling
+  readbacks 3, overall experiment health **OK**;
+  sampled physical output MATCHED; CH1 final state VERIFIED;
+  LOCAL command SENT. This summary shows logged LOCAL,
+  not independently observed physical mode during this
+  particular run.
+- Report zoom screenshot: **8.06 W peak sampled power**,
+  2.10 W mean sampled power, 259.4 J estimated energy.
+  Diagnostics snapshot: `*STB?` 0/0, `LSR1?` 1/1,
+  `LSR2?` 0/0, `*ESR?` 0/0, EER/QER 0/0. LSR is
+  a read-and-clear event register; no continuous-mode
+  claim from this register is justified.
+
+**Status update:** Profile Runner moving position marker
+and conservative CV/CC estimates are now *hardware-observed*,
+with both expected CV-like and CC-like states shown after
+the label-flicker fix. The real 90-second session also
+passed recorded cleanup and reporting, with no readback
+errors. Stronger claims about error-free indefinite operation,
+instantaneous mode verification or actual hardware LOCAL
+state from only the last screenshot are unwarranted.
+New screenshots are current-conversation artifacts,
+NOT committed PNG files in repository; do not invent
+README image links.
+
+The prior user explicitly verified physical LOCAL restoration
+in an earlier run; do not silently extend that observation
+to the latest 17:56 run. Original programmed CH1 V/I/enable
+front-panel values after this latest run were not explicitly
+reported. Only release approval remains after checking those
+last physical facts if necessary and publishing image assets.
+No merge or tag to `main`.
+
+
 ## 2026-11-22 — CV/CC label flicker fix fully offline validated
 
 GitHub Actions **45038456180 succeeded** on `dev` source at
