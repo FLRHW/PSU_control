@@ -5,10 +5,15 @@ Aim-TTi / Thurlby Thandar CPX400DP power supply over Ethernet:
 CSV profile playback, standalone and paused-profile manual control,
 offline preview, measured readbacks, and interactive HTML reports.
 
-**Release status:** v13.6 is a release candidate under development
-on `dev`; **v13.5 on `main` remains the stable version**.
-v13.6 must not be merged/tagged until the remaining hardware
-acceptance and user approval are recorded.
+**Release status:** v13.6 is a release candidate on `dev`;
+**v13.5 on `main` remains stable**. On 22 November 2026,
+a real supervised 90-second hardware demonstration completed
+with zero readback errors and GUI restoration verified;
+the user also confirmed LOCAL returned on the actual PSU.
+Original CH1 programmed V/I/output-enable front-panel values
+have not been independently reported. v13.6 will not be
+merged/tagged without remaining release acceptance and
+explicit user approval.
 
 ## Features
 
@@ -137,12 +142,21 @@ Playwright locally.
 
 ## Release screenshots
 
-The planned README screenshots are documented in the
-[release acceptance guide](docs/HARDWARE_ACCEPTANCE_v13_6.md).
-They will be added here **only after genuine PNG files have
-been supplied, reviewed and committed**. Synthetic examples must
-be labelled synthetic, and real screenshots must not disclose
-unwanted network or serial information.
+Seven **real hardware/UI screenshots** from 22 November 2026
+were supplied and reviewed, showing the 90-second preview,
+1,000-hour offline preview, paused Manual Control, completed
+run, HTML charts and diagnostic summary. A privacy-cropped
+PNG bundle has been prepared, but the files **have not yet been
+committed to GitHub**. README galleries will be linked once
+the actual PNG assets exist under `docs/screenshots/`.
+See [hardware acceptance details](docs/HARDWARE_ACCEPTANCE_v13_6.md).
+
+The screenshot preview used GUI application defaults in
+**linear mode** even though example CSV metadata requests
+step mode. The paused-profile screenshot also shows a
+manual current limit of 1.00 A rather than the original
+example's 0.10 A. Neither should be misrepresented in
+captions.
 
 ## Version history and development records
 
