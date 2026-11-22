@@ -1285,7 +1285,8 @@ class Window(QMainWindow):
                 col = self.log_columns
                 event = fields[col['event']]
                 if event not in ('readback', 'setpoint', 'initial_ramp',
-                                 'final_ramp', 'manual_setpoint', 'pause_hold'):
+                                 'final_ramp', 'manual_setpoint', 'pause_hold',
+                                 'output_transition', 'snapshot', 'final_state_sent'):
                     continue
                 ch = int(fields[col['channel']])
                 if ch not in self.channel_labels:
@@ -1721,6 +1722,10 @@ class Window(QMainWindow):
         self.poll_measurements()
         self.measurement_timer.stop()
         self.running = False
+        # Once the runner closes its socket, a derived mode is no longer live.
+        self.run_targets = {1: {}, 2: {}}
+        for ch in (1, 2):
+            self.update_runner_regulation(ch)
         self.last_progress_clock = None
         self.pause_manual_active = False
         self.manual_online = False
