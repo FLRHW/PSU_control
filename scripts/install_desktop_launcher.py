@@ -49,6 +49,7 @@ def launcher_content(python_executable: Path, installed_icon: Path) -> str:
         "Terminal=false",
         "Categories=Development;Science;",
         "StartupNotify=true",
+        "StartupWMClass=" + APP_ID,
         MANAGED_MARKER,
         ""
     ])
