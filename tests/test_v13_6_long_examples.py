@@ -8,6 +8,25 @@ ROOT = Path(__file__).resolve().parents[1] / 'profiles' / 'examples'
 
 
 class LongExampleTests(unittest.TestCase):
+    def test_release_preview_stays_off_and_hardware_demo_is_current_limited(self):
+        preview = load_profile(ROOT / 'release_demo_90s_preview.csv')
+        self.assertEqual(preview[6][-1][0], 90)
+        self.assertEqual(preview[1], [1, 2])
+        self.assertTrue(all(v[2] == 0 for _, rows in preview[6]
+                            for v in rows.values()))
+        hardware = load_profile(ROOT / 'hardware_demo_90s_REQUIRES_LOAD.csv')
+        self.assertEqual(hardware[1], [1])
+        self.assertEqual(hardware[6][-1][0], 90)
+        self.assertTrue(hardware[7][1])
+        self.assertTrue(any(v[2] == 1 for _, rows in hardware[6]
+                            for v in rows.values()))
+        self.assertTrue(all(v[0] <= 3 and v[1] <= .1 for _, rows in hardware[6]
+                            for v in rows.values()))
+        self.assertEqual(hardware[6][-1][1][1][2], 0)
+        for details in (preview, hardware):
+            self.assertGreaterEqual(validate_schedule(details[6], details[3],
+                                                      details[8], details[9], True), .05)
+
     def test_sparse_examples_parse_and_keep_all_outputs_disabled(self):
         for filename, total, count, channels in (
             ('long_24h_step_preview.csv', 86400, 5, [1]),
