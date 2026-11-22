@@ -50,3 +50,31 @@ jobs:
             tail -n 12 /tmp/cpx400dp-tests.log
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  browser_report:
+    name: Offline Chromium large-report visual smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: scripts
+      CPX_BROWSER_SCREENSHOT_DIR: ${{ runner.temp }}/cpx-browser-artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install offline headless Chromium testing dependency
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Validate generated 1000h report inside real browser
+        run: python tests/browser_report_smoke.py
+      - name: Save synthetic screenshot for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpx400dp-synthetic-report-browser
+          path: ${{ runner.temp }}/cpx-browser-artifacts/
+          if-no-files-found: ignore
+          retention-days: 5
