@@ -1301,7 +1301,14 @@ class Window(QMainWindow):
                     enable = fields[col['requested_enable']].strip()
                     if enable in ('0','1'):
                         target['enabled'] = enable == '1'
-                    self.update_runner_regulation(ch)
+                        if not target['enabled']:
+                            # OFF invalidates the prior mode immediately.
+                            self.update_runner_regulation(ch)
+                    # Setpoint rows arrive as often as every 50 ms, while
+                    # actual V/I readbacks may arrive only every 250 ms.
+                    # Never clear a valid mode estimate just because a new
+                    # setpoint was logged with no new measured values.
+                    # The next readback re-evaluates the new target.
                     continue
                 v = float(fields[col['measured_voltage_v']])
                 a = float(fields[col['measured_current_a']])
