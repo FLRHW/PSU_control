@@ -1,5 +1,64 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — Actual 17:56 upload verified against measurement CSV and HTML
+
+The user clarified that the **last follow-up message** attached both exact
+source files, and we reopened them directly:
+`hardware_demo_90s_15ohm_measurements_20261122_175652_376088.csv`
+and `hardware_demo_90s_15ohm_report_20261122_175652_376088.html`.
+Unlike the preceding screenshot-only note, these are now
+**independently inspected source recordings**.
+
+Measurement CSV has **2,443 rows** including 1,801 scheduled
+setpoint events, 495 readbacks, 41 initial-ramp and 41 final-ramp
+events. No readback_error events. Recorded normal completion
+with `final_state_sent`, `final_state_verified`,
+`physical_output_checked`, then `local_sent`.
+Report agrees with screenshots: COMPLETED, 495 successful/
+0 failed readbacks, 2.073 ms maximum logged setpoint
+lateness, 0 output-health warnings, 0 unexplained high
+readbacks, 3 expected-settling samples, experiment health
+OK, sampled physical output MATCHED, final CH1 state
+VERIFIED, LOCAL command SENT; 8.06 W sampled peak power.
+
+**Numerically confirmed regulation response** (approximate
+median readings in absolute elapsed windows): CV around
+t=22–32s at **3.986 V / 0.268 A**, consistent with 15 ohms;
+CC around t=42–52s at **2.266 V / 0.153 A**, consistent
+with programmed 0.15 A current limit, and returning to CV
+at t=52–62s around **5.986 V / 0.401 A**.
+Pause event at elapsed 54.851s, resume at 84.335s, with
+29.484s paused, during which manual controls were used.
+Note report time axis is elapsed wall-clock (includes pause)
+while preview profile time is paused during manual control.
+
+**Crucial restoration-state detail:** recorded `snapshot`
+was CH1 programmed **11.000 V / 3.530 A / output ON**,
+and `final_state_verified` confirms those SAME PROGRAMMED
+VALUES including output ON after profile. The completion GUI's
+last displayed -0.01 V / 0.00 A came from an earlier
+pre-restoration readback and DOES NOT prove output remained
+disabled. Do not suggest the script restored output OFF,
+and do not interpret restoring to an ON state as a safe
+shutdown. With nominal 15-ohm resistance, 11 V would be
+~8.07 W continuously, below rated 10 W but a sustained
+powered load. The resistor and PSU must be handled as
+energised unless the front panel says otherwise.
+Initial ramp peak readback at t=0.021s was 10.987 V /
+0.734 A (~8.06 W); this is from the originally
+programmed 11 V output, NOT the example's 8 V plateau.
+
+Original programmed-state restoration is supported by
+recorded readback verification. User separately confirmed
+physical LOCAL on an earlier run, not explicitly for the
+latest 17:56 run. No independent direct observation of
+the latest restored physical output enable was provided.
+Source files are user-uploaded; they are **not committed**
+to public GitHub. Keep `main` stable pending explicit
+release approval.
+
+
+
 ## 2026-11-22 — Post-fix 15-ohm GUI hardware validation (17:56 run)
 
 User provided eight fresh screenshots of the 90-second supervised
