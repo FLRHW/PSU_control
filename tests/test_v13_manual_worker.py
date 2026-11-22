@@ -65,6 +65,7 @@ class ManualTests(unittest.TestCase):
              patch.object(self.m,'verify_initial_snapshot',return_value=({1:(.18,1.5,1),2:(.06,1.28,1)},b'')), \
              patch.object(self.m,'snapshot',side_effect=snap), \
              patch.object(self.m,'measure',return_value=([3.0,.2],b'')), \
+             patch.object(self.m,'query_expected',return_value=('1',b'')), \
              patch.object(self.m,'send',side_effect=lambda s,cmd:commands.append(cmd)):
             worker.run()
         self.assertEqual(commands,['V1 3.000','LOCAL'])

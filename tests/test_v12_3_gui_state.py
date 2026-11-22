@@ -25,7 +25,7 @@ class GuiResetTests(unittest.TestCase):
             report_path=Path('/tmp/prior_report.html'), report_btn=Mock(),
             channel_labels={1: Mock(), 2: Mock()},
             restore_labels={1: Mock(), 2: Mock()}, status=Mock(),
-            set_channel_status_idle=Mock(),
+            set_channel_status_idle=Mock(), set_preview_progress=Mock(),
         )
         reset(obj)
         self.assertFalse(obj.readback_poll_enabled)

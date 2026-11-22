@@ -1,0 +1,99 @@
+"""Read-only, advisory storage forecast for CPX400DP measurement logging.
+
+This estimate is intentionally conservative and is NOT a disk reservation
+or a guarantee about later disk consumption. Never contacts the PSU.
+"""
+from pathlib import Path
+import math
+import shutil
+
+# Approximate upper-budget per CSV event, allowing verbose timestamps/notes.
+BYTES_PER_EVENT = 512
+RESERVE_BYTES = 512 * 1024 * 1024
+
+
+def storage_forecast(output_path, duration_s, interval_s, readback_interval_s,
+                     channel_count, disk_usage=shutil.disk_usage):
+    """Return a human-readable warning or None; fail open on OS probe errors.
+
+    A fixed size estimate accounts for setpoint and readback rows; pause,
+    manual activity, diagnostic notes and HTML reports can add more.
+    This is advisory only and must never change the instrument workflow.
+    """
+    try:
+        values = (duration_s, interval_s, readback_interval_s)
+        if not all(math.isfinite(float(v)) for v in values):
+            return None
+        duration, interval, readback_interval = map(float, values)
+        if duration < 0 or interval <= 0 or readback_interval <= 0:
+            return None
+        if not isinstance(channel_count, int) or channel_count < 1:
+            return None
+        disk = disk_usage(Path(output_path).parent)
+        if disk.free < 0:
+            return None
+        estimated_events = channel_count * (
+            math.ceil(duration / interval) + math.ceil(duration / readback_interval) + 2
+        )
+        estimated = estimated_events * BYTES_PER_EVENT
+        threshold = estimated + RESERVE_BYTES
+        if disk.free >= threshold:
+            return None
+        def gib(n):
+            return f'{n / (1024 ** 3):.2f} GiB'
+        return ('[STORAGE WARNING] Estimated measurement CSV budget '
+                f'{gib(estimated)}, available {gib(disk.free)} on output filesystem; '
+                f'recommended free capacity including reserve {gib(threshold)}. '
+                'This is a rough estimate, not an allocation; extra events, '
+                'HTML reports and other processes can consume more space. '
+                'The run is not blocked by this advisory.')
+    except (OSError, ValueError, TypeError, OverflowError):
+        return None
+
+
+class DiskSpaceMonitor:
+    """Read-only, rate-limited filesystem checks while an experiment runs.
+
+    Never raises into a PSU control or cleanup path. Cannot reserve space,
+    guarantee recording success, or safely infer that PSU outputs should
+    change when storage runs low.
+    """
+    def __init__(self, output_path, *, reserve_bytes=RESERVE_BYTES,
+                 check_interval_s=30.0, repeat_interval_s=300.0,
+                 disk_usage=shutil.disk_usage, monotonic=None):
+        import time
+        self.output_dir = Path(output_path).parent
+        self.reserve_bytes = reserve_bytes
+        self.check_interval_s = check_interval_s
+        self.repeat_interval_s = repeat_interval_s
+        self.disk_usage = disk_usage
+        self.monotonic = monotonic or time.monotonic
+        self.next_check_at = 0.0
+        self.next_warning_at = 0.0
+        self.last_free = None
+        self.low_space_seen = False
+
+    def check(self):
+        """Return a status warning only if low, or None; fail open."""
+        try:
+            now = self.monotonic()
+            if now < self.next_check_at:
+                return None
+            self.next_check_at = now + self.check_interval_s
+            self.last_free = int(self.disk_usage(self.output_dir).free)
+            if self.last_free < 0 or self.last_free > self.reserve_bytes:
+                return None
+            self.low_space_seen = True
+            if now < self.next_warning_at:
+                return None
+            self.next_warning_at = now + self.repeat_interval_s
+            free_mib = self.last_free / (1024 ** 2)
+            reserve_mib = self.reserve_bytes / (1024 ** 2)
+            return (
+                f'[STORAGE WARNING] Remaining output disk capacity {free_mib:.1f} MiB '
+                f'is at/below advisory reserve {reserve_mib:.0f} MiB. '
+                'Measurements and HTML reporting may fail if storage fills. '
+                'This warning does not stop the run or change PSU outputs. '
+                'Monitor storage and prepare a safe manual Stop if needed.')
+        except (OSError, ValueError, TypeError, OverflowError):
+            return None

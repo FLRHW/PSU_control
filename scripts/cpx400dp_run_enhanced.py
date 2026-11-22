@@ -23,6 +23,8 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from cpx400dp_regulation import decode_limit_event
+from cpx400dp_storage import storage_forecast, DiskSpaceMonitor
 
 CONFIG_KEYS = {'host', 'channels', 'mode', 'interval_s', 'readback_interval_s', 'log_file', 'ch1_restore', 'ch2_restore', 'initial_ramp_s', 'final_ramp_s', 'progress_interval_s', 'generate_report', 'report_layout', 'abort_on_output_fault'}
 NUMBER = re.compile(r'^\s*([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([VA])?\s*$')
@@ -347,6 +349,10 @@ class OutputHealthMonitor:
         return None
 
 
+class RecordingWriteFailure(OSError):
+    """Measurement CSV is no longer writable; restore PSU before reporting failure."""
+
+
 class OutputFaultAbort(RuntimeError):
     """Sustained physical output collapse; run cleanup in finally."""
 
@@ -533,8 +539,31 @@ def ramp_values(a, b, fraction):
 
 
 def schedule_for(duration, interval, extra=()):
-    ticks = [i*interval for i in range(math.ceil(duration/interval)) if i*interval < duration]
-    return sorted(set(round(t, 9) for t in ticks + list(extra) + [duration]))
+    """Yield ticks in time order without materialising the regular time grid.
+
+    A 1000-hour run at 50 ms has 72 million regular ticks; only the CSV
+    keyframes need to be held in memory. Preserve 9-decimal tick rounding
+    and de-duplication from the legacy scheduler.
+    """
+    keyframes = sorted(set(round(t, 9) for t in extra) | {round(duration, 9)})
+    n_regular = math.ceil(duration / interval)
+    regular_i = 0
+    extra_i = 0
+    previous = None
+    while regular_i < n_regular or extra_i < len(keyframes):
+        regular = round(regular_i * interval, 9) if regular_i < n_regular else math.inf
+        if regular >= round(duration, 9):
+            regular = math.inf
+            regular_i = n_regular
+        keyframe = keyframes[extra_i] if extra_i < len(keyframes) else math.inf
+        tick = min(regular, keyframe)
+        if regular == tick:
+            regular_i += 1
+        if keyframe == tick:
+            extra_i += 1
+        if tick != previous:
+            yield tick
+            previous = tick
 
 
 
@@ -560,11 +589,11 @@ MIN_SETPOINT_GAP_S = 0.050
 
 
 def validate_schedule(points, interval, initial_ramp, final_ramp, restoring):
-    """Check every unique planned tick (including extra CSV keyframe timestamps).
+    """Check minimum tick spacing in O(number of CSV keyframes), not O(ticks).
 
-    The phases are checked independently: connection latency and live state
-    verification can create variable gaps at phase boundaries, and this is not
-    a hard real-time interlock. No PSU connection is opened by this function.
+    Regular ticks are interval apart by construction. Only ticks adjacent
+    to an irregular keyframe or phase endpoint can create shorter gaps.
+    Phases are checked independently; no PSU connection is opened.
     """
     phases = [('main profile', points[-1][0], [t for t, _ in points])]
     if initial_ramp > 0:
@@ -573,9 +602,26 @@ def validate_schedule(points, interval, initial_ramp, final_ramp, restoring):
         phases.append(('final ramp', final_ramp, []))
     min_found = None
     for label, duration, keyframes in phases:
-        ticks = schedule_for(duration, interval, keyframes)
+        count = math.ceil(duration / interval)
+        # Inspect 0, the final regular ticks, and neighbouring regular
+        # ticks for every user keyframe / phase boundary. This is exact
+        # under the same 9-decimal rounding used by schedule_for().
+        candidates = {0.0, round(duration, 9)}
+        for t in [*keyframes, duration]:
+            index = max(0, min(count - 1, math.floor(t / interval)))
+            for i in (index - 1, index, index + 1):
+                if 0 <= i < count:
+                    tick = round(i * interval, 9)
+                    if tick < round(duration, 9):
+                        candidates.add(tick)
+            candidates.add(round(t, 9))
+        if count >= 2:
+            # A regular interior pair is interval apart, even when no
+            # nearby CSV keyframe exists (and no endpoints are close).
+            min_found = interval if min_found is None else min(min_found, interval)
+        ticks = sorted(candidates)
         for left, right in zip(ticks, ticks[1:]):
-            gap = right-left
+            gap = right - left
             min_found = gap if min_found is None else min(min_found, gap)
             if gap < MIN_SETPOINT_GAP_S - 1e-8:
                 raise ValueError(
@@ -639,7 +685,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
     if log_path.resolve() == path.resolve():
         raise ValueError('Measurement log must not overwrite the input profile')
     duration = pts[-1][0]
-    schedule = schedule_for(duration, interval, (t for t, _ in pts))
+    # Lazy schedule; recreate its iterator only at execution, never before I/O.
     smallest_gap = validate_schedule(pts, interval, initial_ramp, final_ramp,
                                      any(restore_flags.values()))
     print(f'Host {host}:9221; channels {channels}; {mode}; {interval:g}s steps; '
@@ -651,6 +697,11 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
     print(f'Progress heartbeat: every {progress_interval:g}s (wall clock); estimated profile duration {estimated_total:g}s')
     print(f'Smallest scheduled within-phase gap: {smallest_gap*1000:.3f} ms (not a guarantee of actual hardware-command spacing)')
     print(f'Measurement log: {log_path}')
+    # Read-only advisory before any PSU socket is opened or commands sent.
+    storage_warning = storage_forecast(
+        log_path, estimated_total, interval, rb_interval, len(channels))
+    if storage_warning:
+        print(storage_warning, flush=True)
     if overrides:
         print('GUI/CLI overrides (CSV unchanged): ' + ', '.join(
             f'{k}={v}' for k, v in sorted(overrides.items())))
@@ -665,6 +716,10 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                  'local': 'NOT SENT', 'physical': {ch: 'NOT CHECKED' for ch in channels}}
         next_readback_at = None
         next_progress_at = None
+        logging_error = None
+        cleanup_active = False
+        # Advisory-only; reads the output filesystem and never commands the PSU.
+        disk_monitor = DiskSpaceMonitor(log_path)
         output_health = OutputHealthMonitor()
         optimizer = CommandOptimizer()
         abort_fault = (profile_option(path, 'abort_on_output_fault', 'true').lower() == 'true')
@@ -683,6 +738,8 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
         pause_listener = None
         last_pause_write_at = None
         last_pause_state_emit_at = None
+        last_pause_lsr_poll_at = None
+        pause_limit_modes = {ch: None for ch in channels}
         # Kubuntu/POSIX: SIGUSR1 toggles pause and resume. The handler only
         # changes an in-memory flag; it never talks to the instrument.
         pause_wanted = False
@@ -704,13 +761,36 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
             return max(0.0, now - start - paused_total -
                        (now - pause_started if pause_started is not None else 0.0))
 
+        def poll_paused_regulation(sock, pending):
+            # LSR<N>? is a read-and-clear EVENT register, so preserve only
+            # the last unambiguous observed mode and label it as historical.
+            for ch in channels:
+                try:
+                    answer, pending = query_expected(
+                        sock, f'LSR{ch}?', pending,
+                        lambda line: re.fullmatch(r'(?:0[xX][0-9a-fA-F]+|[0-9]+)', line.strip()) is not None)
+                    pause_limit_modes[ch] = decode_limit_event(
+                        answer, bool(pause_manual_targets[ch][2]), pause_limit_modes[ch])
+                    # Since LSR is read-and-clear, preserve nonzero raw
+                    # event bits in the measurement log for later diagnostics.
+                    if int(answer, 0) if answer.strip().lower().startswith('0x') else int(answer):
+                        log('limit_event_sample', channel=ch,
+                            note=f'paused LSR{ch}?={answer}; read-and-clear')
+                except (OSError, ValueError, ConnectionError) as exc:
+                    pause_limit_modes[ch] = None
+                    log('limit_event_error', channel=ch,
+                        note=f'paused LSR{ch}? unavailable: {exc}')
+            return pending
+
         def emit_pause_manual_state(sock, pending):
             # Programmed settings, not assumed command values, are shown to user.
             states, pending = snapshot(sock, channels, pending)
             readings = {}
             for ch in channels:
                 readings[ch], pending = measure(sock, ch, pending)
-            payload = {str(ch): {'programmed': list(states[ch]), 'measured': readings[ch]}
+            pending = poll_paused_regulation(sock, pending)
+            payload = {str(ch): {'programmed': list(states[ch]), 'measured': readings[ch],
+                                  'regulation': pause_limit_modes[ch]}
                        for ch in channels}
             print('[PAUSE MANUAL STATE] ' + json.dumps(payload, separators=(',', ':')), flush=True)
             return pending
@@ -839,12 +919,14 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
 
         def pause_checkpoint(phase):
             nonlocal pause_started, paused_total, next_readback_at, active_phase, pending
-            nonlocal pause_original, pause_manual_targets, manual_pause_dirty, last_pause_state_emit_at
+            nonlocal pause_original, pause_manual_targets, manual_pause_dirty, last_pause_state_emit_at, last_pause_lsr_poll_at
             active_phase = phase
             if pause_wanted and pause_started is None:
                 pause_started = time.monotonic()
                 manual_pause_dirty = False
                 last_pause_state_emit_at = None
+                last_pause_lsr_poll_at = None
+                pause_limit_modes.update({ch: None for ch in channels})
                 drain_pause_requests()  # never execute old requests from a prior pause
                 # The runner is still the only PSU connection owner.
                 # Capture the intended profile state, not potentially stale
@@ -877,12 +959,17 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 # Reuse the runner's existing measurement samples for the
                 # paused Manual tab; don't add another polling connection.
                 now = time.monotonic()
+                if phase == 'profile' and (last_pause_lsr_poll_at is None or
+                                          now-last_pause_lsr_poll_at >= 1.0):
+                    pending = poll_paused_regulation(sock, pending)
+                    last_pause_lsr_poll_at = now
                 if (phase == 'profile' and
                     (last_pause_state_emit_at is None or now-last_pause_state_emit_at >= .25) and
                     all(ch in latest_readings for ch in channels)):
                     payload = {str(ch): {
                         'programmed': list(pause_manual_targets[ch]),
-                        'measured': list(latest_readings[ch])} for ch in channels}
+                        'measured': list(latest_readings[ch]),
+                        'regulation': pause_limit_modes[ch]} for ch in channels}
                     print('[PAUSE MANUAL STATE] ' + json.dumps(payload, separators=(',', ':')), flush=True)
                     last_pause_state_emit_at = now
                 heartbeat('paused')
@@ -903,6 +990,16 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 heartbeat(phase, force=True)
         def heartbeat(phase, force=False):
             nonlocal next_progress_at
+            # A nested diagnostic handler may have caught the original
+            # RecordingWriteFailure. Never continue scheduling a profile after
+            # recording has become unwritable.
+            if logging_error is not None and not cleanup_active:
+                raise RecordingWriteFailure('Recording incomplete: ' + logging_error)
+            # Called throughout profile, pauses, and ramps. The monitor rate
+            # limits itself and suppresses probe errors, including in cleanup.
+            disk_warning = disk_monitor.check()
+            if disk_warning:
+                print(disk_warning, flush=True)
             if start is None or next_progress_at is None:
                 return
             now = time.monotonic()
@@ -934,12 +1031,27 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 until_heartbeat = (next_progress_at - now) if next_progress_at is not None else remaining
                 time.sleep(min(remaining, 0.05, max(0.001, until_heartbeat)))
         def log(event, scheduled='', channel='', **kwargs):
+            nonlocal logging_error
+            # Once a write fails, do not repeatedly attempt I/O on the broken
+            # file. During normal execution abort into the established cleanup
+            # path; during cleanup preserve restoration and LOCAL-last attempts.
+            if logging_error is not None:
+                return
             row = {'utc_time':datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
                    'elapsed_s': f'{time.monotonic()-start:.6f}' if start is not None else '',
                    'event':event, 'scheduled_s':scheduled, 'channel':channel}
             row.update(kwargs)
-            writer.writerow(row)
-            f.flush()
+            try:
+                writer.writerow(row)
+                f.flush()
+            except (OSError, csv.Error) as exc:
+                logging_error = f'{type(exc).__name__}: {exc}'
+                print('[RECORDING WRITE FAILURE] Measurement CSV is incomplete; '
+                      'attempting configured restoration and LOCAL. '
+                      + logging_error, file=sys.stderr, flush=True)
+                if not cleanup_active:
+                    raise RecordingWriteFailure(logging_error) from exc
+                return
             if event == 'final_state_verified' and channel in stats['final']:
                 stats['final'][channel] = 'VERIFIED'
             elif event == 'final_state_error' and channel in stats['final']:
@@ -1062,8 +1174,15 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
 
         with ExitStack() as socket_stack:
             from cpx400dp_discovery import connect_psu, connect_on
-            sock, resolved_host, resolved_interface = connect_psu(
-                host, psu_interface, discover_enabled=not no_discovery)
+            try:
+                sock, resolved_host, resolved_interface = connect_psu(
+                    host, psu_interface, discover_enabled=not no_discovery)
+            except (OSError, ValueError, ConnectionError) as exc:
+                # No control socket or initial snapshot was obtained.
+                # Do not imply that a restoration attempt was performed.
+                print(f'[CONNECTION NOT ESTABLISHED] {exc}; profile not started; '
+                      'no instrument control commands sent', file=sys.stderr, flush=True)
+                raise
             sock = socket_stack.enter_context(sock)
             sock.settimeout(0.5)
             if pause_control_socket is not None:
@@ -1078,7 +1197,6 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 socket_stack.callback(lambda: os.path.exists(path) and os.unlink(path))
                 socket_stack.enter_context(pause_listener)
                 print('[PAUSE CONTROL READY] Private local socket active', flush=True)
-            log('discovery', note=f'{resolved_host}:9221 interface={resolved_interface or "system route"}')
             pending = b''
             original = {}
             output_known = {ch: None for ch in channels}
@@ -1088,6 +1206,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
             captured = False
             cleanup_errors = []
             try:
+                log('discovery', note=f'{resolved_host}:9221 interface={resolved_interface or "system route"}')
                 # Always snapshot selected channels: needed for initial ramp,
                 # and for restoring original setpoints/output states.
                 # A recently interrupted session can leave a transient stale
@@ -1176,7 +1295,9 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 profile_pause_base = paused_total
                 print('Running main profile ...', flush=True)
                 heartbeat('profile', force=True)
-                for t in schedule:
+                executed_slots = 0
+                for t in schedule_for(duration, interval, (time_s for time_s, _ in pts)):
+                    executed_slots += 1
                     wait_until(profile_start + t - profile_pause_base, 'profile')
                     late = max(0.0, time.monotonic() - profile_start - t - paused_total + profile_pause_base)
                     max_late = max(max_late, late)
@@ -1222,7 +1343,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                                         {ch: output_known[ch] for ch in channels})
                     heartbeat('profile')
                 profile_finished = True
-                print(f'Finished {len(schedule)} time slots; max scheduling lateness {max_late*1000:.3f} ms')
+                print(f'Finished {executed_slots} time slots; max scheduling lateness {max_late*1000:.3f} ms')
             except OutputFaultAbort as exc:
                 print(f'[OUTPUT FAULT ABORT] {exc}; restoring original settings', flush=True)
                 log('experiment_fault', note=str(exc))
@@ -1231,6 +1352,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 print('\nInterrupted by Ctrl+C; attempting configured final-state cleanup ...', flush=True)
                 log('interrupted', note='Ctrl+C received; starting final-state cleanup')
             finally:
+                cleanup_active = True
                 # Cleanup is attempted even after Ctrl+C and query errors.
                 # On errors, skip the leisurely final ramp and promptly restore.
                 # A saved ON output is never deliberately disabled for a ramp.
@@ -1310,7 +1432,9 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                     f'mean_tcp_send_ms={optimizer.total_send_ms/max(1,optimizer.groups):.4f}; '
                     f'max_tcp_send_ms={optimizer.max_send_ms:.4f}; '
                     'TCP duration is not instrument processing time'))
-                stats['status'] = ('ERROR — cleanup not fully verified' if cleanup_errors
+                stats['status'] = ('ERROR — recording incomplete; cleanup status in console'
+                                   if logging_error is not None else
+                                   'ERROR — cleanup not fully verified' if cleanup_errors
                                    else 'ABORTED (output fault) — cleanup verified' if fault_abort
                                    else 'INTERRUPTED — cleanup verified' if interrupted
                                    else 'COMPLETED — cleanup verified' if profile_finished
@@ -1319,6 +1443,10 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 if cleanup_errors:
                     print('WARNING: ' + '; '.join(cleanup_errors), file=sys.stderr)
                     raise RuntimeError('Cleanup not fully verified; check PSU settings and LOCAL mode')
+                if logging_error is not None:
+                    # Cleanup may have succeeded, but the recording is not
+                    # trustworthy and the process must not report success.
+                    raise RecordingWriteFailure('Recording incomplete: ' + logging_error)
             if fault_abort:
                 print('ABORTED: sustained output fault; configured final states restored; LOCAL sent.', flush=True)
                 return 2
@@ -1407,6 +1535,7 @@ def main():
     log_path = log_path.with_name(f'{log_path.stem}_{run_id}{log_path.suffix}')
     previous_mtime = log_path.stat().st_mtime_ns if log_path.exists() else None
     code = 0
+    recording_failed = False
     try:
         connection_options = {}
         if args.psu_ip is not None: connection_options['psu_ip'] = args.psu_ip
@@ -1415,6 +1544,12 @@ def main():
         if args.pause_control_socket: connection_options['pause_control_socket'] = args.pause_control_socket
         code = execute(profile, output_dir=args.output_dir, overrides=overrides,
                        run_id=run_id, **connection_options)
+    except RecordingWriteFailure as exc:
+        recording_failed = True
+        print(f'ERROR: Measurement recording failed: {exc}. '
+              'Automatic report omitted; retain partial CSV for forensic audit.',
+              file=sys.stderr, flush=True)
+        code = 1
     except KeyboardInterrupt:
         print('INTERRUPTED: Ctrl+C during setup or cleanup; PSU final state is not guaranteed. Check the instrument.', file=sys.stderr)
         code = 130
@@ -1423,13 +1558,14 @@ def main():
         code = 1
     # Plotting happens in a separate process only after the instrument run has
     # finished. A reporting problem never alters the run's return code.
-    if report_cfg['generate_report'] == 'true' and log_path.exists() and (previous_mtime is None or log_path.stat().st_mtime_ns != previous_mtime):
+    if (not recording_failed and report_cfg['generate_report'] == 'true' and
+            log_path.exists() and
+            (previous_mtime is None or log_path.stat().st_mtime_ns != previous_mtime)):
         # The initial snapshot may fail before any channel readings or profile
         # events are logged. That is a valid failed run, not a plotting error.
         try:
             with log_path.open(newline='', encoding='utf-8-sig') as f:
-                events = list(csv.DictReader(f))
-            has_measurements = any(row.get('event') == 'readback' for row in events)
+                has_measurements = any(row.get('event') == 'readback' for row in csv.DictReader(f))
         except (OSError, csv.Error) as exc:
             print(f'WARNING: Cannot inspect measurement log for report: {exc}', file=sys.stderr)
             has_measurements = False

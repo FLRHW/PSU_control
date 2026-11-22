@@ -9,6 +9,7 @@ import csv
 import html
 import json
 import math
+from cpx400dp_report_stream import generate as generate_stream
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +22,14 @@ def num(row, field):
         return None
 
 
-def generate(log_file, layout='separate', profile=None):
+def generate(log_file, layout='separate', profile=None, *, force_stream=False):
+    # Small runs retain the original single-file report unchanged. Large logs
+    # need a bounded-memory two-pass parser and local on-demand detail chunks.
+    # The threshold is based on CSV byte size, avoiding an expensive row-count
+    # pass before choosing which reporting path to use.
+    if force_stream or Path(log_file).stat().st_size >= 8 * 1024 * 1024:
+        return generate_stream(log_file, layout=layout, profile=profile)
+
     if layout not in ('separate', 'combined', 'power'):
         raise ValueError('Unsupported initial report layout')
     log_file = Path(log_file)
@@ -206,6 +214,15 @@ const NS='http://www.w3.org/2000/svg';
 function svgEl(tag,attrs,text){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs||{}))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;}
 function add(svg,tag,attrs,text){const e=svgEl(tag,attrs,text);svg.appendChild(e);return e;}
 function fmt(n){if(Math.abs(n)>=100)return n.toFixed(0);if(Math.abs(n)>=10)return n.toFixed(1);return n.toFixed(2).replace(/0+$/,'').replace(/\\.$/,'');}
+function timeUnit(span){return span>=172800?[86400,'days']:span>=7200?[3600,'h']:span>=120?[60,'min']:[1,'s'];}
+function timeLabel(seconds,span){
+ const [factor,unit]=timeUnit(span);
+ // Tick labels must not collapse to the same integer when zooming to
+ // 50 ms near the end of a 1000-hour experiment.
+ const grid=(span/factor)/5;
+ const places=Math.min(6,Math.max(0,Math.ceil(-Math.log10(Math.max(grid,1e-12)))+1));
+ return (seconds/factor).toFixed(places)+' '+unit;
+}
 const VIEWS=new WeakMap();
 function render(panel){
  const view=VIEWS.get(panel);
@@ -214,8 +231,12 @@ function render(panel){
  svg.replaceChildren();legend.replaceChildren();svg.setAttribute('viewBox','0 0 880 420');
  const W=880,H=420,L=75,R=140,T=28,B=55, PW=W-L-R,PH=H-T-B;
  const present=['v','i','p'].filter(axis=>chosen.some(k=>DESC[k].axis===axis));
- const allTimes=Object.keys(DESC).flatMap(k=>d[k].map(p=>p[0]));
- const maxT=Math.max(1,...allTimes,...d.boundaries,...(d.pauses||[]).map(p=>p[0]),...(d.ramp_regions||[]).map(p=>p[1]));
+ // Avoid spreading huge traces into Math.max() call arguments.
+ let maxT=1;
+ for(const key of Object.keys(DESC))for(const point of d[key])if(Number.isFinite(point[0])&&point[0]>maxT)maxT=point[0];
+ for(const point of d.boundaries)if(point>maxT)maxT=point;
+ for(const point of (d.pauses||[]))if(point[0]>maxT)maxT=point[0];
+ for(const point of (d.ramp_regions||[]))if(point[1]>maxT)maxT=point[1];
  view.maxT=maxT;
  if(!view.range) view.range=[0,maxT];
  view.range[0]=Math.max(0,Math.min(view.range[0],maxT-.0001));
@@ -225,15 +246,15 @@ function render(panel){
  const xt=px=>xmin+(px-L)/PW*span;
  view.geometry={L,R,T,B,PW,PH,xt};
  const scales={};
- for(const axis of present){const values=chosen.filter(k=>DESC[k].axis===axis).flatMap(k=>d[k].map(p=>p[1])).filter(Number.isFinite);const hi=Math.max(0,...values);scales[axis]={lo:0,hi:hi>0?hi*1.07:1};}
+ for(const axis of present){let hi=0;for(const key of chosen){if(DESC[key].axis!==axis)continue;for(const point of d[key])if(Number.isFinite(point[1])&&point[1]>hi)hi=point[1];}scales[axis]={lo:0,hi:hi>0?hi*1.07:1};}
  const y=(axis,v)=>T+PH*(scales[axis].hi-Math.max(0,v))/(scales[axis].hi-scales[axis].lo);
  add(svg,'rect',{x:L,y:T,width:PW,height:PH,fill:'#fff',stroke:'#cbd5df'});
  const clipId='clip-'+panel.dataset.channel;
  const defs=add(svg,'defs',{}); const cp=add(defs,'clipPath',{id:clipId});
  add(cp,'rect',{x:L,y:T,width:PW,height:PH});
  const tracesGroup=add(svg,'g',{'clip-path':'url(#'+clipId+')'});
- for(let j=0;j<=5;j++){const xx=L+PW*j/5;add(svg,'line',{x1:xx,x2:xx,y1:T,y2:T+PH,class:'grid-line'});add(svg,'text',{x:xx,y:T+PH+20,'text-anchor':'middle',class:'axis-label'},fmt(xmin+span*j/5));}
- add(svg,'text',{x:L+PW/2,y:H-12,'text-anchor':'middle',class:'axis-name'},'Elapsed time (s)');
+ for(let j=0;j<=5;j++){const xx=L+PW*j/5;add(svg,'line',{x1:xx,x2:xx,y1:T,y2:T+PH,class:'grid-line'});add(svg,'text',{x:xx,y:T+PH+20,'text-anchor':'middle',class:'axis-label'},timeLabel(xmin+span*j/5,span));}
+ add(svg,'text',{x:L+PW/2,y:H-12,'text-anchor':'middle',class:'axis-name'},'Elapsed time ('+timeUnit(span)[1]+')');
  // OFF bands indicate output-enable state, not instantaneous terminal voltage.
  for(const [a,b] of (d.off_regions||[])){if(b>a)add(tracesGroup,'rect',{x:x(a),y:T,width:x(b)-x(a),height:PH,class:'off-region'});}
  for(const [a,b,label] of (d.ramp_regions||[])){if(b>a)add(tracesGroup,'rect',{x:x(a),y:T,width:x(b)-x(a),height:PH,class:'ramp-region'});}
@@ -263,8 +284,28 @@ function render(panel){
  const axisInfo={v:{at:L,anchor:'end',offset:-10,name:'Voltage (V)',color:'#196cb5'},i:{at:L+PW,anchor:'start',offset:10,name:'Current (A)',color:'#d42b31'},p:{at:L+PW+74,anchor:'start',offset:8,name:'Power (W)',color:'#7545b9'}};
  for(const axis of present){const info=axisInfo[axis],s=scales[axis];for(let j=0;j<=5;j++){const yy=T+PH*j/5;add(svg,'text',{x:info.at+info.offset,y:yy+4,'text-anchor':info.anchor,class:'axis-label',fill:info.color},fmt(s.hi-(s.hi-s.lo)*j/5));}add(svg,'text',{x:info.at+info.offset,y:14,'text-anchor':info.anchor,class:'axis-name',fill:info.color},info.name);}
  for(const key of chosen){const a=d[key];if(!a.length)continue;const def=DESC[key],valid=a.filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));if(!valid.length)continue;
- // Downsample only rendered line coordinates for very long profiles (preserve first and last).
- const stride=Math.max(1,Math.ceil(valid.length/4000));const sampled=valid.filter((_,i)=>i%stride===0||i===valid.length-1);
+ // Select the viewport with one adjacent sample for continuous curves.
+ // Bin by pixel, keeping first/last/min/max so narrow excursions survive.
+ const visible=[];
+ for(let i=0;i<valid.length;i++){
+   if(valid[i][0]>=xmin&&valid[i][0]<=xmax)visible.push(valid[i]);
+   else if(valid[i][0]<xmin && (i===valid.length-1||valid[i+1][0]>=xmin))visible.push(valid[i]);
+   else if(valid[i][0]>xmax && (i===0||valid[i-1][0]<=xmax)){visible.push(valid[i]);break;}
+ }
+ const bins=new Map();
+ for(const p of visible){
+   const k=Math.floor(x(p[0]));
+   let b=bins.get(k);
+   if(!b){bins.set(k,b=[p,p,p,p]);continue;}
+   b[3]=p;
+   if(p[1]<b[1][1])b[1]=p;
+   if(p[1]>b[2][1])b[2]=p;
+ }
+ const sampled=[];
+ for(const b of bins.values()){
+   const unique=[...new Set(b)];unique.sort((a,b)=>a[0]-b[0]);
+   for(const p of unique)if(sampled[sampled.length-1]!==p)sampled.push(p);
+ }
  // Step-profile voltage/current limits render with vertical transitions;
  // initial/final ramps retain the ordinary linear segments.
  const stepped=(d.mode==='step' && (key==='vs'||key==='cs'));
@@ -292,13 +333,13 @@ function render(panel){
  const renderCursor=(t,label)=>{
    if(t===null || t<xmin || t>xmax)return;
    const xx=x(t);add(svg,'line',{x1:xx,x2:xx,y1:T,y2:T+PH,stroke:'#7545b9','stroke-width':1.5,'stroke-dasharray':'5 3'});
-   add(svg,'text',{x:Math.min(xx+5,L+PW-52),y:T+PH-8,fill:'#7545b9','font-size':11},label+' '+fmt(t)+' s');
+   add(svg,'text',{x:Math.min(xx+5,L+PW-52),y:T+PH-8,fill:'#7545b9','font-size':11},label+' '+timeLabel(t,span));
  };
  renderCursor(view.cursors[0],'A');renderCursor(view.cursors[1],'B');
  const cv=panel.querySelector('.cursor-values');
  if(view.cursors[0]!==null && view.cursors[1]!==null){
    const a=nearVoltage(view.cursors[0]),b=nearVoltage(view.cursors[1]);
-   cv.textContent='A '+fmt(view.cursors[0])+' s · B '+fmt(view.cursors[1])+' s · Δt '+fmt(Math.abs(view.cursors[1]-view.cursors[0]))+' s'+
+   cv.textContent='A '+timeLabel(view.cursors[0],span)+' · B '+timeLabel(view.cursors[1],span)+' · Δt '+timeLabel(Math.abs(view.cursors[1]-view.cursors[0]),span)+
      (a&&b?' · measured V(A) '+fmt(a[1])+' V · V(B) '+fmt(b[1])+' V · ΔV '+fmt(b[1]-a[1])+' V':' · no voltage samples');
  }else cv.textContent=view.cursorMode?'Click chart to place cursor '+(view.cursors[0]===null?'A':'B')+' (second click completes pair)':'Wheel to zoom · drag to pan · cursors for Δt/ΔV';
  if(!chosen.length)add(svg,'text',{x:L+PW/2,y:T+PH/2,'text-anchor':'middle',class:'empty'},'Select one or more curves above');
@@ -347,5 +388,7 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('measurements',type=Path)
     parser.add_argument('--layout',choices=['separate','combined','power'],default='separate',help='Initial checkbox selection for compatibility')
+    parser.add_argument('--stream', action='store_true',
+                        help='Force large-log streaming report and companion detail chunks')
     opts=parser.parse_args()
-    print(generate(opts.measurements,opts.layout))
+    print(generate(opts.measurements, opts.layout, force_stream=opts.stream))

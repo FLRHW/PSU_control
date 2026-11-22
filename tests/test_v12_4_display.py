@@ -23,6 +23,7 @@ class DisplayTests(unittest.TestCase):
             channel_indicators={i: SimpleNamespace(isChecked=lambda i=i: i in checked) for i in (1, 2)},
             channel_labels={i: Mock() for i in (1, 2)},
             restore_labels={i: Mock() for i in (1, 2)},
+            update_runner_regulation=Mock(),
         )
 
     def test_idle_single_channel_marks_other_na(self):

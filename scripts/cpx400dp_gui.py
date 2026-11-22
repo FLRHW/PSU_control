@@ -7,34 +7,36 @@ that opens the instrument socket, sends setpoints and restores output states.
 import os
 import csv
 import json
+import ipaddress
 import shutil
 import socket
 import tempfile
 import io
 import signal
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 try:
     from PySide6.QtCore import Qt, QProcess, QThread, Signal, QUrl, QSettings, QTimer
-    from PySide6.QtGui import QDesktopServices, QPixmap, QFont
+    from PySide6.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
         QProgressBar, QMessageBox, QSplitter, QGroupBox, QFrame, QSizePolicy,
-        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget
+        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget, QDialog
     )
     QT_LIBRARY = 'PySide6'
 except ImportError:
     try:
         from PyQt5.QtCore import Qt, QProcess, QThread, pyqtSignal as Signal, QUrl, QSettings, QTimer
-        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont
+        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
         from PyQt5.QtWidgets import (
             QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
             QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
             QProgressBar, QMessageBox, QSplitter, QGroupBox, QFrame, QSizePolicy,
-        QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget
+            QCheckBox, QComboBox, QDoubleSpinBox, QLineEdit, QTabWidget, QDialog
         )
         QT_LIBRARY = 'PyQt5'
     except ImportError:
@@ -43,14 +45,47 @@ except ImportError:
             'Then run with: /usr/bin/python3 cpx400dp_gui.py\n'
             'Alternatively install PySide6 in the Python environment you use.')
 
+from cpx400dp_network_preflight import persistence_preflight
 from cpx400dp_gui_core import (
     require_files, embedded_preview_plots, parse_progress, parse_report_path,
     parse_heartbeat, parse_final_verification, classify_run
 )
 from cpx400dp_preview import profile_summary, generate_preview
+from cpx400dp_regulation_estimate import estimate_regulation
 from cpx400dp_manual import ManualWorker
+from cpx400dp_network_setup import (diagnose_connection, setup_ethernet_link_local,
+                                     network_route_summary, instrument_route_summary)
 
 HERE = Path(__file__).resolve().parent
+
+
+class ProfileProgressImage(QLabel):
+    """Draw a moving progress marker over a static generated preview image.
+
+    Matplotlib uses left=.105 and right=.88 for its axes. The marker
+    only changes GUI pixels; no CSV or preview file is modified.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.profile_fraction = None
+
+    def set_profile_fraction(self, fraction):
+        self.profile_fraction = None if fraction is None else max(0., min(1., float(fraction)))
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.profile_fraction is None or self.pixmap() is None:
+            return
+        # Pixmap is fitted exactly to this label in display_preview_pixmaps.
+        width, height = self.width(), self.height()
+        x = round(width * (0.105 + 0.775 * self.profile_fraction))
+        painter = QPainter(self)
+        painter.setPen(QPen(QColor('#a622ac'), 2))
+        painter.drawLine(x, round(height * .08), x, round(height * .92))
+        painter.setPen(QColor('#81218a'))
+        painter.drawText(min(width - 38, x + 5), max(12, round(height * .08) + 14), 'NOW')
+        painter.end()
 
 
 class PreviewJob(QThread):
@@ -76,6 +111,57 @@ class PreviewJob(QThread):
         self.completed.emit(html_path, summary, images)
 
 
+class ConnectionProbeJob(QThread):
+    """Read-only, asynchronous *IDN? discovery. No profile control commands."""
+    completed = Signal(object)
+
+    def __init__(self, address, interface, parent=None):
+        super().__init__(parent)
+        self.address = address
+        self.interface = interface
+
+    def run(self):
+        try:
+            result = diagnose_connection(self.address, self.interface)
+        except Exception as exc:
+            result = {'status': 'error', 'message': str(exc),
+                      'matches': [], 'setup': []}
+        self.completed.emit(result)
+
+
+class AdapterSetupJob(QThread):
+    """Opt-in NetworkManager profile setup; never touches the PSU itself."""
+    completed = Signal(bool, str)
+
+    def __init__(self, interface, parent=None):
+        super().__init__(parent)
+        self.interface = interface
+
+    def run(self):
+        try:
+            profile = setup_ethernet_link_local(self.interface)
+        except Exception as exc:
+            self.completed.emit(False, str(exc))
+            return
+        self.completed.emit(True, profile)
+
+
+class PersistencePreflightJob(QThread):
+    """Observe current Linux routing and NM state without changing either."""
+    completed = Signal(str)
+
+    def __init__(self, host, parent=None):
+        super().__init__(parent)
+        self.host = host
+
+    def run(self):
+        try:
+            result = persistence_preflight(self.host)
+        except Exception as exc:
+            result = 'Network persistence preflight unavailable: ' + str(exc)
+        self.completed.emit(result)
+
+
 class Window(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -89,6 +175,10 @@ class Window(QMainWindow):
         self.pause_control_dir = None
         self.pause_socket_path = None
         self.preview_job = None
+        self.connection_probe_job = None
+        self.adapter_setup_job = None
+        self.persistence_preflight_job = None
+        self.network_setup_candidates = []
         self.preview_path = None
         self.report_path = None
         self.process = None
@@ -102,6 +192,8 @@ class Window(QMainWindow):
         self.success_summary = False
         self.experiment_health_failed = False
         self.run_summary = ''
+        self.connection_not_established = False
+        self.connection_not_established = False
         self.final_states = {}
         self.last_phase = ''
         self.measurement_log = None
@@ -110,6 +202,14 @@ class Window(QMainWindow):
         self.log_remainder = ''
         self.log_columns = None
         self.original_preview_pixmaps = []
+        self.preview_progress_pictures = []
+        self.profile_progress_fraction = None
+        self.profile_duration_s = None
+        self.run_initial_ramp_s = 0.0
+        self.last_progress_clock = None
+        self.last_progress_elapsed = None
+        self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
         self.pending_preview_refresh = False
         self._setting_defaults = {}
         self.preview_debounce = QTimer(self)
@@ -119,8 +219,12 @@ class Window(QMainWindow):
         self.measurement_timer = QTimer(self)
         self.measurement_timer.setInterval(250)
         self.measurement_timer.timeout.connect(self.poll_measurements)
+        self.preview_cursor_timer = QTimer(self)
+        self.preview_cursor_timer.setInterval(200)
+        self.preview_cursor_timer.timeout.connect(self.update_preview_cursor)
+        self.preview_cursor_timer.start()
         # QSettings uses the standard per-user configuration directory on Kubuntu.
-        # Only the output directory is remembered; no instrument credentials.
+        # Last-used folders are remembered; never persist instrument credentials.
         self.settings = QSettings('CPX400DP', 'ControlGUI')
         saved_dir = str(self.settings.value('output_directory', '') or '')
         self.saved_output_dir = Path(saved_dir).expanduser() if saved_dir and Path(saved_dir).is_dir() else None
@@ -157,14 +261,35 @@ class Window(QMainWindow):
         self.output_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         output_row.addWidget(self.output_label, 1)
         selectors.addLayout(output_row)
-        # Optional manual address/interface fallback; blank fields mean auto.
+        # Keep routine experiment controls clear: network configuration and
+        # diagnostics live in a separate nonmodal dialog. All existing
+        # connection users continue reading the same widgets and values.
+        self.network_settings_btn = QPushButton('Network settings…')
+        self.network_settings_btn.setToolTip(
+            'IP/interface, read-only PSU identification and optional adapter setup')
+        self.network_settings_btn.clicked.connect(self.open_network_settings)
+        self.network_dialog = QDialog(self)
+        self.network_dialog.setWindowTitle('CPX400DP — Network settings')
+        self.network_dialog.setMinimumWidth(680)
+        self.network_dialog.resize(740, 310)
+        dialog_layout = QVBoxLayout(self.network_dialog)
+        dialog_layout.setContentsMargins(18, 16, 18, 14)
+        dialog_layout.setSpacing(12)
+        dialog_heading = QLabel('Power supply connection')
+        dialog_heading.setStyleSheet('font-size: 17px; font-weight: 650;')
+        dialog_layout.addWidget(dialog_heading)
+        dialog_hint = QLabel(
+            'Leave PSU IPv4 blank to use the profile CSV address first, then automatic discovery. '
+            'Testing sends only *IDN? and closes its temporary connection.')
+        dialog_hint.setWordWrap(True)
+        dialog_layout.addWidget(dialog_hint)
         connection_row = QHBoxLayout()
-        connection_row.addWidget(QLabel('PSU:'))
+        connection_row.addWidget(QLabel('PSU IPv4:'))
         self.psu_ip = QLineEdit()
-        self.psu_ip.setPlaceholderText('Auto (CSV address first)')
-        self.psu_ip.setToolTip('Optional IPv4 override for discovery; blank uses the address in the CSV.')
-        self.psu_ip.setMaximumWidth(170)
-        connection_row.addWidget(self.psu_ip)
+        self.psu_ip.setPlaceholderText('CSV address / automatic discovery')
+        self.psu_ip.setToolTip('Optional IPv4 override. Blank: use the profile CSV address first, then search for the PSU if needed.')
+        self.psu_ip.setMinimumWidth(230)
+        connection_row.addWidget(self.psu_ip, 2)
         connection_row.addWidget(QLabel('Interface:'))
         self.psu_interface = QComboBox()
         self.psu_interface.setEditable(True)
@@ -175,10 +300,63 @@ class Window(QMainWindow):
                 self.psu_interface.addItem(iface)
         except OSError:
             pass
-        self.psu_interface.setToolTip('Optional Linux interface override; Auto probes all active interfaces.')
-        connection_row.addWidget(self.psu_interface)
-        connection_row.addStretch()
-        selectors.addLayout(connection_row)
+        # Restore only a previously verified destination; never probe on startup.
+        # Invalid/stale interface names fall back to Auto, not a blind binding.
+        saved_ip = str(self.settings.value('verified_psu_ip', '') or '').strip()
+        saved_iface = str(self.settings.value('verified_psu_interface', '') or '').strip()
+        try:
+            if saved_ip:
+                ipaddress.IPv4Address(saved_ip)
+                self.psu_ip.setText(saved_ip)
+        except ValueError:
+            pass
+        if saved_iface and self.psu_interface.findText(saved_iface) >= 0:
+            self.psu_interface.setCurrentText(saved_iface)
+        self.psu_interface.setMinimumWidth(230)
+        self.psu_interface.setToolTip(
+            'Optional network interface override; Auto checks active interfaces.')
+        connection_row.addWidget(self.psu_interface, 2)
+        dialog_layout.addLayout(connection_row)
+
+        dialog_actions = QHBoxLayout()
+        self.test_connection_btn = QPushButton('Test connection')
+        self.test_connection_btn.setToolTip(
+            'Read-only identification; no PSU output commands.')
+        self.test_connection_btn.clicked.connect(self.test_connection)
+        dialog_actions.addWidget(self.test_connection_btn)
+        self.prepare_adapter_btn = QPushButton('Prepare adapter…')
+        self.prepare_adapter_btn.setEnabled(False)
+        self.prepare_adapter_btn.setToolTip(
+            'Opt-in one-time NetworkManager link-local configuration.')
+        self.prepare_adapter_btn.clicked.connect(self.prepare_adapter)
+        dialog_actions.addWidget(self.prepare_adapter_btn)
+        self.inspect_routes_btn = QPushButton('Inspect routes')
+        self.inspect_routes_btn.setToolTip(
+            'Read-only check for conflicting routes across Ethernet adapters')
+        self.inspect_routes_btn.clicked.connect(self.inspect_network_routes)
+        dialog_actions.addWidget(self.inspect_routes_btn)
+        self.preflight_btn = QPushButton('Assess persistence')
+        self.preflight_btn.setToolTip(
+            'Read-only inspection of current IPv4 routes and saved NetworkManager profiles')
+        self.preflight_btn.clicked.connect(self.assess_network_persistence)
+        dialog_actions.addWidget(self.preflight_btn)
+        dialog_actions.addStretch()
+        dialog_layout.addLayout(dialog_actions)
+
+        self.connection_message = QLabel(
+            'Not tested — profile execution establishes its own verified connection.')
+        self.connection_message.setWordWrap(True)
+        self.connection_message.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.connection_message.setMinimumHeight(55)
+        self.connection_message.setStyleSheet('color: #455a70; font-size: 12px;')
+        dialog_layout.addWidget(self.connection_message)
+        dialog_layout.addStretch()
+        bottom_actions = QHBoxLayout()
+        bottom_actions.addStretch()
+        close_network_btn = QPushButton('Close')
+        close_network_btn.clicked.connect(self.network_dialog.hide)
+        bottom_actions.addWidget(close_network_btn)
+        dialog_layout.addLayout(bottom_actions)
         toolbar.addLayout(selectors, 1)
 
         preview_tools = QVBoxLayout()
@@ -199,12 +377,10 @@ class Window(QMainWindow):
         self.duration_box.setFixedWidth(75)
         self.duration_box.setToolTip('Main profile duration (CSV keyframes; excludes initial/final ramps)')
         preview_buttons.addWidget(self.duration_box)
+        preview_buttons.addSpacing(12)
+        preview_buttons.addWidget(self.network_settings_btn)
         preview_buttons.addStretch()
         preview_tools.addLayout(preview_buttons)
-        self.info_label = QLabel('Select a profile')
-        self.info_label.setWordWrap(True)
-        self.info_label.setStyleSheet('color: #455a70; font-size: 12px;')
-        preview_tools.addWidget(self.info_label)
         toolbar.addLayout(preview_tools, 2)
         layout.addLayout(toolbar)
         # Optional overrides take effect ONLY for this run; CSV stays untouched.
@@ -289,6 +465,7 @@ class Window(QMainWindow):
         readout_layout.addLayout(left, 2)
         self.channel_labels = {}
         self.restore_labels = {}
+        self.runner_regulation_labels = {}
         for ch in (1, 2):
             group = QVBoxLayout()
             title = QLabel(f'Channel {ch}')
@@ -299,11 +476,16 @@ class Window(QMainWindow):
             restore.setStyleSheet('color: #586779; font-size: 12px;')
             group.addWidget(title)
             group.addWidget(values)
+            regulation = QLabel('REGULATION: UNKNOWN')
+            regulation.setStyleSheet('font-size: 11px; color: #536173;')
+            regulation.setToolTip('Estimated from logged programmed V/I and measured V/I; not a live PSU CV/CC mode readback.')
+            group.addWidget(regulation)
             group.addWidget(restore)
             group.addStretch()
             readout_layout.addLayout(group, 1)
             self.channel_labels[ch] = values
             self.restore_labels[ch] = restore
+            self.runner_regulation_labels[ch] = regulation
         layout.addWidget(readouts)
 
         splitter = QSplitter(Qt.Vertical)
@@ -414,6 +596,11 @@ class Window(QMainWindow):
             output_badge.setStyleSheet('font-size: 16px; font-weight: 700; padding: 9px; '
                                        'border-radius: 6px; color: #465365; background: #e3e9f1;')
             fields.addWidget(output_badge)
+            regulation = QLabel('REGULATION: UNKNOWN')
+            regulation.setToolTip('Last unambiguous CV/CC/UNREG event from the read-and-clear LSR register; not a guaranteed live operating-mode reading.')
+            regulation.setStyleSheet('font-size: 13px; font-weight: 600; color: #536173;')
+            fields.addWidget(regulation)
+            self.manual_cards[(ch, 'regulation')] = regulation
             for key, name, low, high in (
                 ('voltage', 'Voltage (V)', 0, 60),
                 ('current', 'Current limit (A)', 0, 20)):
@@ -468,6 +655,9 @@ class Window(QMainWindow):
             # enables controls which issue local IPC requests to that runner.
             self.pause_manual_active = True
             self.manual_online = True
+            # Paused runner controls the existing socket; LSR event polling
+            # will be handled separately, never by an extra ManualWorker.
+            self.manual_regulation_update({1: None, 2: None})
             self.manual_connect_btn.setEnabled(False)
             self.manual_disconnect_btn.setText('Leave paused controls')
             self.manual_status.setText('PAUSED PROFILE — temporary manual control. '
@@ -495,7 +685,10 @@ class Window(QMainWindow):
         interface = None if not interface or interface == 'Auto' else interface
         self.manual_status.setText('Connecting; verifying initial programmed states…')
         self.manual_connect_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
         self.manual_output_states = {1: None, 2: None}
+        self.manual_regulation_update({1: None, 2: None})
         self.start_btn.setEnabled(False)
         self.choose_btn.setEnabled(False)
         self.override_check.setEnabled(False)
@@ -503,6 +696,7 @@ class Window(QMainWindow):
         self.manual_worker = ManualWorker(address, interface, self)
         self.manual_worker.connected.connect(self.manual_connected)
         self.manual_worker.state_changed.connect(self.manual_update)
+        self.manual_worker.regulation_changed.connect(self.manual_regulation_update)
         self.manual_worker.failed.connect(self.manual_error)
         self.manual_worker.finished_safe.connect(self.manual_done)
         self.manual_worker.start()
@@ -539,6 +733,21 @@ class Window(QMainWindow):
                 voltage, current = readings[ch]
                 self.manual_cards[ch][0].setText(f'Measured: {voltage:.2f} V    {current:.2f} A')
         self.manual_widgets_enabled(self.manual_online)
+
+    def manual_regulation_update(self, modes):
+        # These are *last observed events*, not continuous-state telemetry.
+        colours = {'CV': '#116037', 'CC': '#854a12', 'UNREG': '#a62735', 'FAULT': '#a62735'}
+        for ch in (1, 2):
+            label = self.manual_cards.get((ch, 'regulation'))
+            if label is None:
+                continue
+            mode = modes.get(ch)
+            if mode in colours:
+                label.setText(f'REGULATION: {mode} (last event)')
+                label.setStyleSheet(f'font-size: 13px; font-weight: 600; color: {colours[mode]};')
+            else:
+                label.setText('REGULATION: UNKNOWN')
+                label.setStyleSheet('font-size: 13px; font-weight: 600; color: #536173;')
 
     def manual_send(self, action, channel, value):
         if not self.manual_online:
@@ -594,6 +803,8 @@ class Window(QMainWindow):
         self.manual_status.setText(message)
         self.manual_widgets_enabled(False)
         self.manual_connect_btn.setEnabled(True)
+        self.test_connection_btn.setEnabled(True)
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
         self.choose_btn.setEnabled(True)
         self.override_check.setEnabled(True)
         self.set_override_enabled(self.override_check.isChecked())
@@ -651,7 +862,7 @@ class Window(QMainWindow):
         try:
             settings = profile_summary(self.profile)
         except (ValueError, OSError, KeyError) as exc:
-            self.info_label.setText('Profile error: ' + str(exc))
+            self.append_console('PROFILE ERROR: ' + str(exc))
             return
         self._setting_defaults['channels'] = list(settings['channels'])
         for ch, check in self.channel_indicators.items():
@@ -679,12 +890,193 @@ class Window(QMainWindow):
             self.clear_previous_run_display()
             self.preview_debounce.start()
 
+    def assess_network_persistence(self):
+        # Network commands run on a worker thread. This read-only operation
+        # does not require any PSU socket and is safe while the GUI is idle.
+        if self.persistence_preflight_job is not None:
+            return
+        self.preflight_btn.setEnabled(False)
+        self.connection_message.setText(
+            'Inspecting current addresses, routes and NetworkManager profiles (read-only)…')
+        self.persistence_preflight_job = PersistencePreflightJob(
+            self.psu_ip.text().strip() or None, self)
+        self.persistence_preflight_job.completed.connect(self.persistence_preflight_finished)
+        self.persistence_preflight_job.finished.connect(self.persistence_preflight_done)
+        self.persistence_preflight_job.start()
+
+    def persistence_preflight_finished(self, report):
+        dialog = QDialog(self.network_dialog)
+        dialog.setWindowTitle('Network persistence assessment — read-only')
+        dialog.resize(780, 510)
+        layout = QVBoxLayout(dialog)
+        view = QPlainTextEdit()
+        view.setReadOnly(True)
+        view.setPlainText(report)
+        layout.addWidget(view)
+        close_btn = QPushButton('Close')
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        dialog.exec() if hasattr(dialog, 'exec') else dialog.exec_()
+        self.connection_message.setText(
+            'Read-only persistence assessment completed. No network settings changed.')
+
+    def persistence_preflight_done(self):
+        job = self.persistence_preflight_job
+        self.persistence_preflight_job = None
+        self.preflight_btn.setEnabled(True)
+        if job is not None:
+            job.deleteLater()
+
+    def inspect_network_routes(self):
+        # A read-only, bounded local iproute2 query; no PSU socket or
+        # NetworkManager modifications. Keep hardware sessions undisturbed.
+        if (self.running or self.manual_worker is not None or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
+            return
+        try:
+            result = network_route_summary()
+            # Show the actual kernel decision for the known PSU address, not
+            # merely whether broad /16 routes overlap. Read-only.
+            host = self.psu_ip.text().strip()
+            if host:
+                interface = self.psu_interface.currentText().strip()
+                expected = None if interface in ('', 'Auto') else interface
+                result += '\n' + instrument_route_summary(host, expected)
+        except (OSError, ValueError) as exc:
+            result = 'Unable to inspect IPv4 routes: ' + str(exc)
+        self.connection_message.setText(result)
+
+    def open_network_settings(self):
+        # Nonmodal: no extra instrument socket, no discovery on opening.
+        # Running/manual ownership still disables Test/Prepare controls.
+        self.network_dialog.show()
+
     def choose_profile(self):
-        start_dir = str(self.profile.parent) if self.profile else str(Path.home() / 'Downloads')
+        saved = Path(str(self.settings.value('last_profile_directory', '') or '')).expanduser()
+        first_use = HERE.parent / 'profiles'
+        start = self.profile.parent if self.profile else (
+            saved if saved.is_dir() else first_use if first_use.is_dir() else Path.home())
+        start_dir = str(start)
         filename, _ = QFileDialog.getOpenFileName(self, 'Choose a CPX400DP CSV profile',
                                                   start_dir, 'CSV profiles (*.csv);;All files (*)')
         if filename:
             self.load_profile(Path(filename))
+
+    def test_connection(self):
+        # Never open even a short-lived diagnostic socket while another GUI
+        # activity owns the instrument connection.
+        if (self.running or self.manual_worker is not None or
+            self.pause_manual_active or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
+            return
+        host = self.psu_ip.text().strip() or None
+        iface = self.psu_interface.currentText().strip()
+        iface = None if iface in ('', 'Auto') else iface
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
+        self.manual_connect_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+        self.connection_message.setText('Searching Ethernet adapters (read-only; no output commands)…')
+        self.connection_probe_job = ConnectionProbeJob(host, iface, self)
+        self.connection_probe_job.completed.connect(self.connection_test_finished)
+        self.connection_probe_job.finished.connect(self.connection_probe_done)
+        self.connection_probe_job.start()
+
+    def connection_test_finished(self, result):
+        self.test_connection_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.manual_connect_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.start_btn.setEnabled(bool(self.profile and self.preview_path) and
+                                  not self.running and self.manual_worker is None)
+        self.network_setup_candidates = list(result.get('setup', []))
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
+        self.connection_message.setText(result.get('message', 'No connection result'))
+        if result.get('status') == 'found':
+            host, iface, identity = result['matches'][0]
+            self.psu_ip.setText(host)
+            if self.psu_interface.findText(iface) < 0:
+                self.psu_interface.addItem(iface)
+            self.psu_interface.setCurrentText(iface)
+            # Only persist a host/interface pair after a verified *IDN? probe.
+            # Never persist unverified typing or connection errors.
+            self.settings.setValue('verified_psu_ip', host)
+            self.settings.setValue('verified_psu_interface', iface)
+            self.settings.sync()
+            self.connection_message.setText(f'✓ Identified {identity} at {host} via {iface}. '
+                                            'Test socket closed; profile not started.')
+        elif result.get('status') == 'multiple':
+            self.connection_message.setText(result['message'] + ' ' +
+                                            '; '.join(f'{h} via {nic}' for h, nic, _ in result['matches']))
+    def connection_probe_done(self):
+        job = self.connection_probe_job
+        self.connection_probe_job = None
+        if job is not None:
+            job.deleteLater()
+
+    def prepare_adapter(self):
+        if (self.running or self.manual_worker is not None or self.pause_manual_active or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning()) or
+            not self.network_setup_candidates):
+            return
+        candidates = self.network_setup_candidates
+        selected = self.psu_interface.currentText().strip()
+        if selected not in candidates:
+            if len(candidates) != 1:
+                QMessageBox.information(
+                    self, 'Choose an adapter',
+                    'More than one unconfigured Ethernet adapter was detected. '
+                    'Select the correct interface in the Interface field and try again.')
+                return
+            selected = candidates[0]
+        answer = QMessageBox.question(
+            self, 'Prepare Ethernet adapter?',
+            f'Configure {selected} with a dedicated automatic link-local IPv4 '
+            'connection through NetworkManager?\n\n'
+            'This changes the computer’s configuration, not the PSU. '
+            'It will create a persistent CPX400DP-specific connection. '
+            'NetworkManager may request your system password.\n\n'
+            'The action is refused if the adapter already has an IPv4 address '
+            'or an active NetworkManager connection. Other adapters are untouched.',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        self.prepare_adapter_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.manual_connect_btn.setEnabled(False)
+        self.start_btn.setEnabled(False)
+        self.connection_message.setText(f'Preparing {selected} with NetworkManager…')
+        self.adapter_setup_job = AdapterSetupJob(selected, self)
+        self.adapter_setup_job.completed.connect(self.adapter_setup_finished)
+        self.adapter_setup_job.finished.connect(self.adapter_setup_done)
+        self.adapter_setup_job.start()
+
+    def adapter_setup_finished(self, success, detail):
+        self.test_connection_btn.setEnabled(True)
+        self.manual_connect_btn.setEnabled(not self.running and self.manual_worker is None)
+        self.start_btn.setEnabled(bool(self.profile and self.preview_path) and not self.running)
+        if success:
+            self.network_setup_candidates = []
+            self.prepare_adapter_btn.setEnabled(False)
+            self.connection_message.setText(
+                f'NetworkManager configured {detail}. The instrument may need '
+                'approximately 30 seconds to finish Auto-IP setup. '
+                'Click Test connection again to identify it.')
+            try:
+                from cpx400dp_discovery import interfaces
+                for iface in interfaces():
+                    if self.psu_interface.findText(iface) < 0:
+                        self.psu_interface.addItem(iface)
+            except OSError:
+                pass
+        else:
+            self.connection_message.setText('Adapter setup failed or was declined: ' + detail)
+            self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
+    def adapter_setup_done(self):
+        job = self.adapter_setup_job
+        self.adapter_setup_job = None
+        if job is not None:
+            job.deleteLater()
 
     def choose_output_directory(self):
         if self.running or (self.preview_job and self.preview_job.isRunning()):
@@ -704,6 +1096,8 @@ class Window(QMainWindow):
         if self.running or (self.preview_job and self.preview_job.isRunning()):
             return
         self.profile = Path(path).resolve()
+        self.settings.setValue('last_profile_directory', str(self.profile.parent))
+        self.settings.sync()
         # A newly selected profile must never inherit the previous run's
         # measurements, restoration badges, or completed progress indicator.
         self.clear_previous_run_display()
@@ -737,7 +1131,7 @@ class Window(QMainWindow):
         self.choose_btn.setEnabled(False)
         self.output_btn.setEnabled(False)
         self.start_btn.setEnabled(False)
-        self.info_label.setText('Generating offline preview…')
+        self.status.setText('Generating offline preview…')
         self.status.setText('Previewing (no PSU connection)')
         job = PreviewJob(self.profile, self.output_dir, self.active_overrides(), self)
         self.preview_job = job
@@ -756,28 +1150,20 @@ class Window(QMainWindow):
 
     def preview_failed(self, message):
         self.status.setText('Preview error')
-        self.info_label.setText(f'Could not parse or preview profile: {message}')
+        self.append_console(f'PREVIEW ERROR: {message}')
         self.start_btn.setEnabled(False)
         self.append_console(f'PREVIEW ERROR: {message}')
 
     def preview_ready(self, output_path, info, images):
         self.preview_path = Path(output_path)
         self.open_preview_btn.setEnabled(True)
-        warnings = []
-        for ch in info['channels']:
-            events = info['enable_commands'][ch]
-            if not events:
-                warnings.append(f'CH{ch} HOLD: initial output state retained')
-            elif events[0]['time_s'] == 0 and all(e['command']=='OFF' for e in events):
-                warnings.append(f'CH{ch} OFF throughout')
-            elif events[0]['time_s'] > 0:
-                warnings.append(f'CH{ch} initially HOLD')
         self.duration_box.setText(f'{info["duration_s"]:g} s')
         # Channel boxes are editable overrides: do not reset them from the
         # preview result, which may be stale while a new preview is pending.
-        self.info_label.setText('; '.join(warnings) if warnings else '')
         self.clear_plots()
         self.original_preview_pixmaps = []
+        self.profile_duration_s = float(info['duration_s'])
+        self.set_preview_progress(None)
         for title, blob in images:
             original = QPixmap()
             if original.loadFromData(blob, 'PNG'):
@@ -793,6 +1179,7 @@ class Window(QMainWindow):
         crop the pixmap. The scroll area handles exceptionally narrow windows.
         """
         self.clear_plots()
+        self.preview_progress_pictures = []
         if not self.original_preview_pixmaps:
             return
         count = len(self.original_preview_pixmaps)
@@ -810,15 +1197,54 @@ class Window(QMainWindow):
             heading = QLabel(title.split(' voltage')[0])
             heading.setStyleSheet('font-weight: 650;')
             block_layout.addWidget(heading)
-            picture = QLabel()
+            picture = ProfileProgressImage()
             picture.setAlignment(Qt.AlignTop | Qt.AlignLeft)
             scaled = original.scaled(width, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             picture.setPixmap(scaled)
             picture.setFixedSize(scaled.size())
+            picture.set_profile_fraction(self.profile_progress_fraction)
+            self.preview_progress_pictures.append(picture)
             block_layout.addWidget(picture)
             self.plots_layout.addWidget(block)
         if count == 1:
             self.plots_layout.addStretch(1)
+
+    def set_preview_progress(self, fraction):
+        self.profile_progress_fraction = fraction
+        for picture in self.preview_progress_pictures:
+            picture.set_profile_fraction(fraction)
+
+    def update_preview_cursor(self):
+        # Extrapolate only between runner heartbeat messages, never while
+        # paused, stopping or in restoration. This is GUI-only animation.
+        if not self.running or self.last_progress_elapsed is None:
+            return
+        elapsed = self.last_progress_elapsed
+        if (not self.paused and not self.stopping and
+                self.last_phase in ('profile', 'Main profile') and
+                self.last_progress_clock is not None):
+            elapsed += min(2., max(0., time.monotonic() - self.last_progress_clock))
+        if self.profile_duration_s and self.profile_duration_s > 0:
+            fraction = ((elapsed - self.run_initial_ramp_s) /
+                        self.profile_duration_s)
+            self.set_preview_progress(max(0., min(1., fraction)))
+
+    def update_runner_regulation(self, channel, measured_voltage=None, measured_current=None):
+        label = self.runner_regulation_labels.get(channel)
+        if label is None:
+            return
+        target = self.run_targets.get(channel, {})
+        result = estimate_regulation(
+            target.get('voltage'), target.get('current'), target.get('enabled'),
+            measured_voltage, measured_current)
+        if result:
+            label.setText('REGULATION: ' + result + ' (V/I estimate)')
+            label.setStyleSheet('font-size: 11px; font-weight: 650; color: #176a4a;'
+                                if result.startswith('CV') else
+                                'font-size: 11px; font-weight: 650; color: #a76813;')
+        else:
+            label.setText('REGULATION: UNKNOWN')
+            label.setStyleSheet('font-size: 11px; color: #536173;')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -858,16 +1284,98 @@ class Window(QMainWindow):
                         self.log_columns = {key: idx for idx, key in enumerate(fields)}
                     continue
                 col = self.log_columns
-                if fields[col['event']] != 'readback':
+                event = fields[col['event']]
+                if event not in ('readback', 'setpoint', 'initial_ramp',
+                                 'final_ramp', 'manual_setpoint', 'pause_hold',
+                                 'output_transition', 'snapshot', 'final_state_sent',
+                                 'final_state_verified', 'final_state_error',
+                                 'physical_output_checked', 'physical_output_warning',
+                                 'physical_output_skipped'):
                     continue
                 ch = int(fields[col['channel']])
                 if ch not in self.channel_labels:
                     continue
+                if event.startswith('final_state_') or event.startswith('physical_output_'):
+                    self.apply_final_measurement_event(
+                        ch, event,
+                        fields[col['set_voltage_v']].strip(),
+                        fields[col['current_limit_a']].strip(),
+                        fields[col['requested_enable']].strip(),
+                        fields[col['measured_voltage_v']].strip())
+                    continue
+                if event != 'readback':
+                    target = self.run_targets.setdefault(ch, {})
+                    for column, key in (('set_voltage_v', 'voltage'),
+                                        ('current_limit_a', 'current')):
+                        value = fields[col[column]].strip()
+                        if value:
+                            target[key] = float(value)
+                    enable = fields[col['requested_enable']].strip()
+                    if enable in ('0','1'):
+                        target['enabled'] = enable == '1'
+                        if not target['enabled']:
+                            # OFF invalidates the prior mode immediately.
+                            self.update_runner_regulation(ch)
+                    # Setpoint rows arrive as often as every 50 ms, while
+                    # actual V/I readbacks may arrive only every 250 ms.
+                    # Never clear a valid mode estimate just because a new
+                    # setpoint was logged with no new measured values.
+                    # The next readback re-evaluates the new target.
+                    continue
                 v = float(fields[col['measured_voltage_v']])
                 a = float(fields[col['measured_current_a']])
-                self.channel_labels[ch].setText(f'{v:.2f} V   {a:.2f} A')
+                if ch not in self.final_measurement_channels:
+                    self.channel_labels[ch].setText(f'{v:.2f} V   {a:.2f} A')
+                    self.update_runner_regulation(ch, v, a)
             except (ValueError, IndexError, csv.Error, KeyError):
                 continue
+
+    def apply_final_measurement_event(self, ch, event, voltage, limit, enabled, measured_voltage):
+        """Display verified programmed state separately from measured output.
+
+        This reads existing CSV events ONLY; no PSU commands or post-LOCAL
+        queries. Final programmed current limit is NOT a current measurement.
+        The physical check logs voltage only, never measured current.
+        """
+        label = self.channel_labels[ch]
+        restore = self.restore_labels[ch]
+        if event == 'final_state_sent':
+            self.final_measurement_channels.add(ch)
+            label.setText('Final output: awaiting verification')
+            return
+        if event == 'final_state_error':
+            self.final_measurement_channels.add(ch)
+            label.setText('Final output: NOT VERIFIED — check PSU')
+            return
+        if event == 'final_state_verified':
+            self.final_measurement_channels.add(ch)
+            state = {'1': 'ON', '0': 'OFF'}.get(enabled, 'UNKNOWN')
+            try:
+                v, a = float(voltage), float(limit)
+            except (ValueError, TypeError):
+                label.setText('Final programmed state VERIFIED; output measurement unavailable')
+                return
+            label.setText(f'Final output: {state} (programmed; V/I not yet sampled)')
+            restore.setText(f'Restoration: VERIFIED — {v:.2f} V / {a:.2f} A limit; output {state}')
+            restore.setStyleSheet('color: #16713e; font-weight: 650;')
+            return
+        if event == 'physical_output_checked':
+            self.final_measurement_channels.add(ch)
+            try:
+                mv = float(measured_voltage)
+            except (ValueError, TypeError):
+                label.setText('Post-restore voltage unavailable; current not sampled')
+                return
+            label.setText(f'Post-restore: {mv:.2f} V measured; current not sampled')
+            return
+        if event == 'physical_output_warning':
+            self.final_measurement_channels.add(ch)
+            label.setText('Post-restore voltage NOT CONFIRMED — check PSU')
+            return
+        if event == 'physical_output_skipped':
+            self.final_measurement_channels.add(ch)
+            state = {'1': 'ON', '0': 'OFF'}.get(enabled, 'UNKNOWN')
+            label.setText(f'Final output: {state} (programmed; V/I not sampled)')
 
     def clear_plots(self):
         while self.plots_layout.count():
@@ -887,6 +1395,7 @@ class Window(QMainWindow):
         selected = self.displayed_channels()
         for ch in (1, 2):
             self.channel_labels[ch].setText('— V   — A')
+            self.update_runner_regulation(ch)
             label = self.restore_labels[ch]
             label.setText('Restoration: not checked' if ch in selected else
                           'N/A — channel not selected')
@@ -909,6 +1418,11 @@ class Window(QMainWindow):
         self.log_remainder = ''
         self.log_columns = None
         self.progress.setValue(0)
+        self.set_preview_progress(None)
+        self.last_progress_elapsed = None
+        self.last_progress_clock = None
+        self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
         self.phase_label.setText('Phase: Idle')
         self.run_summary = ''
         self.success_summary = False
@@ -958,7 +1472,9 @@ class Window(QMainWindow):
             self.pause_socket_path = None
 
     def start_run(self):
-        if self.running or not self.profile or self.manual_worker is not None:
+        if (self.running or not self.profile or self.manual_worker is not None or
+            (self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning())):
             return
         try:
             require_files(HERE)
@@ -979,8 +1495,17 @@ class Window(QMainWindow):
         self.run_summary = ''
         self.final_states = {}
         self.last_phase = ''
-        self.run_channels = set(profile_summary(self.profile, overrides=self.active_overrides())['channels'])
+        run_info = profile_summary(self.profile, overrides=self.active_overrides())
+        self.run_channels = set(run_info['channels'])
+        self.profile_duration_s = run_info['duration_s']
+        self.run_initial_ramp_s = run_info['initial_ramp_s']
+        self.run_targets = {1: {}, 2: {}}
+        self.final_measurement_channels = set()
+        self.last_progress_elapsed = None
+        self.last_progress_clock = None
+        self.set_preview_progress(0.)
         for ch in (1, 2):
+            self.update_runner_regulation(ch)
             self.channel_labels[ch].setText('— V     — A')
             self.restore_labels[ch].setText('Restoration: pending' if ch in self.run_channels
                                             else 'N/A — channel not selected')
@@ -1031,6 +1556,8 @@ class Window(QMainWindow):
         self.process.start(sys.executable, arguments)
         self.running = True
         self.manual_connect_btn.setEnabled(False)
+        self.test_connection_btn.setEnabled(False)
+        self.prepare_adapter_btn.setEnabled(False)
         self.pause_manual_active = False
         self.stopping = False
         self.paused = False
@@ -1060,12 +1587,19 @@ class Window(QMainWindow):
 
     def handle_line(self, line):
         self.append_console(line)
+        if line.startswith('[CONNECTION NOT ESTABLISHED]'):
+            self.connection_not_established = True
+            self.status.setText('PSU connection failed — profile not started')
+            self.phase_label.setText('Phase: Connection failed — no profile commands')
         if line.startswith('[PAUSE MANUAL STATE] '):
             try:
                 data = json.loads(line.partition('] ')[2])
                 programmed = {int(k): tuple(v['programmed']) for k,v in data.items()}
                 readings = {int(k): tuple(v['measured']) for k,v in data.items()}
                 self.manual_update(programmed, readings)
+                if any('regulation' in value for value in data.values()):
+                    modes = {int(k): v.get('regulation') for k, v in data.items()}
+                    self.manual_regulation_update(modes)
             except (ValueError, KeyError, TypeError) as exc:
                 self.append_console('GUI: Ignored malformed paused state: ' + str(exc))
         elif line.startswith('[PAUSE MANUAL OK]'):
@@ -1150,17 +1684,21 @@ class Window(QMainWindow):
                                 'color: #b42318; font-weight: 650;')
         progress = parse_heartbeat(line)
         if progress:
+            self.last_progress_elapsed = progress['elapsed_s']
+            self.last_progress_clock = time.monotonic()
             self.progress.setValue(progress['percent'])
             phase = progress['phase']
             self.last_phase = phase
             self.phase_label.setText('Phase: ' + phase.replace('_', ' ').title())
+            self.update_preview_cursor()
             if phase == 'paused':
                 self.paused = True
                 self.pause_btn.setText('▶ Resume')
                 self.pause_btn.setEnabled(True)
             for ch, values in progress['readings'].items():
-                self.channel_labels[ch].setText(
-                    f'{values["voltage_v"]:.2f} V     {values["current_a"]:.2f} A')
+                if ch not in self.final_measurement_channels:
+                    self.channel_labels[ch].setText(
+                        f'{values["voltage_v"]:.2f} V     {values["current_a"]:.2f} A')
             if not self.stopping and not self.paused:
                 self.status.setText(f'Running — {progress["elapsed_s"]:g} s elapsed, '
                                     f'~{progress["remaining_s"]:g} s remaining')
@@ -1230,6 +1768,8 @@ class Window(QMainWindow):
                 self.manual_widgets_enabled(False)
                 self.cleanup_pause_control()
                 self.manual_connect_btn.setEnabled(True)
+                self.test_connection_btn.setEnabled(True)
+                self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
                 self.stopping = False
                 self.start_btn.setEnabled(bool(self.profile))
                 self.reset_btn.setEnabled(True)
@@ -1252,12 +1792,19 @@ class Window(QMainWindow):
         self.poll_measurements()
         self.measurement_timer.stop()
         self.running = False
+        # Once the runner closes its socket, a derived mode is no longer live.
+        self.run_targets = {1: {}, 2: {}}
+        for ch in (1, 2):
+            self.update_runner_regulation(ch)
+        self.last_progress_clock = None
         self.pause_manual_active = False
         self.manual_online = False
         self.manual_widgets_enabled(False)
         self.manual_disconnect_btn.setText('Disconnect (LOCAL)')
         self.manual_connect_btn.setText('Connect to PSU')
         self.manual_connect_btn.setEnabled(True)
+        self.test_connection_btn.setEnabled(True)
+        self.prepare_adapter_btn.setEnabled(bool(self.network_setup_candidates))
         self.cleanup_pause_control()
         self.stopping = False
         self.stop_btn.setEnabled(False)
@@ -1279,11 +1826,22 @@ class Window(QMainWindow):
             if self.experiment_health_failed:
                 self.status.setText('Completed / restored — EXPERIMENT HEALTH WARNING (see log)')
             self.progress.setValue(100)
+            self.set_preview_progress(1.)
             self.phase_label.setText('Phase: Complete')
         elif kind == 'stopped':
             self.phase_label.setText('Phase: Stopped — cleanup complete')
         else:
-            if exit_code == 2 and self.success_summary:
+            if self.connection_not_established:
+                self.status.setText('PSU connection failed — profile not started')
+                self.phase_label.setText('Phase: Connection failed — no profile commands')
+                QMessageBox.warning(
+                    self, 'PSU connection failed',
+                    'The runner could not establish a verified control connection.\n'
+                    'No profile commands were issued and no PSU restoration was needed '
+                    'by this attempt.\n\n'
+                    'Check the Run output for the connection error. '
+                    'If another application controls the PSU, disconnect it first.')
+            elif exit_code == 2 and self.success_summary:
                 self.status.setText('OUTPUT FAULT — cleanup verified; inspect PSU before retrying')
                 self.phase_label.setText('Phase: Output fault / restored')
                 QMessageBox.warning(self, 'Output fault — restoration verified',
@@ -1326,6 +1884,14 @@ class Window(QMainWindow):
                 self, 'Experiment still running',
                 'Keep the GUI open until restoration and LOCAL have completed.\n'
                 'Use Stop (safe cleanup) and wait for the runner to finish.')
+            event.ignore()
+            return
+        if ((self.connection_probe_job and self.connection_probe_job.isRunning()) or
+            (self.adapter_setup_job and self.adapter_setup_job.isRunning()) or
+            (self.persistence_preflight_job and self.persistence_preflight_job.isRunning())):
+            QMessageBox.information(self, 'Network check in progress',
+                                    'Complete the connection check, persistence assessment '
+                                    'or adapter setup before closing.')
             event.ignore()
             return
         if self.preview_job and self.preview_job.isRunning():
