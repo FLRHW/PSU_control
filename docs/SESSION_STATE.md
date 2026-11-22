@@ -1,5 +1,25 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — Final-state GUI correction offline CI acceptance
+
+**PASS:** GitHub Actions run `45053486901` on `dev`
+source commit `9e1dbc3071de9541629f718af82e8cbc91e0193c`.
+Both Python full offline regression and real Chromium report
+browser job succeeded. New `test_v13_6_final_display.py`
+exercised the actual GUI parser on simulated genuine
+cleanup CSV event order and verified that a pre-restore
+0 V reading is overwritten by programmed 11.00 V /
+3.53 A limit / ON and post-restore 10.986 V sample,
+while never making up a post-restore current sample.
+OFF/skipped physical check, verification failure and
+late stale readbacks were covered. Existing CV/CC
+fixture updated to carry the new per-run display state.
+No hardware control commands or communication changed;
+therefore no new PSU session is required for this
+display-only fix. Main remains untouched, release gated
+by explicit user approval.
+
+
 ## 2026-11-22 — Final restored-output display corrected on dev
 
 After direct inspection of the user-supplied 17:56 CSV, confirmed
