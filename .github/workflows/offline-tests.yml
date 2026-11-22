@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: cpx400dp-release-candidate-${{ github.workflow }}-${{ github.ref }}
+  group: cpx400dp-final-output-display-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
