@@ -1,5 +1,41 @@
 # v13.6 release candidate — preparation notes
 
+## Hardware and screenshot evidence — 22 November 2026
+
+The user completed the supervised 90-second CH1 demonstration,
+and supplied seven real GUI/browser screenshots. Evidence:
+Profile Runner "Completed — restoration verified", process exit 0;
+HTML run summary COMPLETED with 558 successful readbacks,
+0 failed readbacks, 0 output-health warnings, 0 implausible
+high readbacks, peak logged setpoint lateness 0.877 ms;
+CH1 programmed final state VERIFIED; LOCAL command SENT.
+User separately stated **LOCAL restored** on the actual PSU.
+Pauses/resumes and temporary manual control are visible.
+
+The user has not separately reported observing all three final
+CH1 programmed V/I/output-enable settings at the physical
+front panel. Treat the GUI verification as software evidence,
+not a substitute. The 90s session is hardware-validated,
+but this does not demonstrate disk exhaustion recovery,
+PC power-loss safety or multi-hour/1000h unattended endurance.
+
+During a pause, the UI shows CH1 programmed 3.00 V / 1.00 A,
+measured 2.99 V / 0.20 A, output ON: manual settings differed
+from the example profile's baseline 0.10 A current limit.
+Preview images display the GUI's effective persistent
+Mode=linear despite step-mode CSV metadata; this is documented
+application override behaviour. Do not mislabel those
+screenshots as proof of the CSV's unmodified step mode.
+
+Privacy-cropped screenshots and captions are prepared in
+an external bundle for the user. **No actual screenshot PNGs
+have yet been committed to the GitHub repository**, so README
+image paths must remain unlinked until uploaded. Release must
+remain on dev pending the physical V/I/output-enable
+confirmation, screenshot publication (if desired), final CI
+check and explicit approval to merge/tag.
+
+
 **Target branch:** dev. **Stable branch:** main at v13.5.
 **Decision:** NOT RELEASED; do not create a release tag, push main,
 or merge without explicit user approval and real hardware acceptance.
