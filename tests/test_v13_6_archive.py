@@ -40,6 +40,17 @@ class ArchiveTests(unittest.TestCase):
                 archive(raw,target)
             self.assertEqual(target.read_bytes(),result.read_bytes())
 
+    def test_missing_streaming_report_folder_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            raw = root/'x_measurements.csv'
+            raw.write_text('event,channel\\nreadback,1\\n')
+            report = root/'x_report.html'
+            report.write_text('<html>This large-recording report uses local detail chunks</html>')
+            with self.assertRaisesRegex(ValueError, 'companion data directory'):
+                archive(raw)
+            self.assertFalse((root/'x_measurements_archive.zip').exists())
+
     def test_raw_only_log_is_supported(self):
         with tempfile.TemporaryDirectory() as directory:
             raw=Path(directory)/'p_measurements.csv'
