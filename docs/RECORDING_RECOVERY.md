@@ -47,6 +47,25 @@ must inspect the PSU front panel and outputs before another run.
 The inspector never attempts automated reconnection or corrective
 commands and never assumes a safe state.
 
+## Optional checked archive (no deletion)
+
+Use the following command only after the recording has finished:
+
+    /usr/bin/python3 scripts/cpx400dp_archive.py reports/example_measurements.csv
+
+It creates `example_measurements_archive.zip` next to the original, with
+the raw CSV plus any matching report HTML, its `_report_data/` folder and
+console log. Use `--output /safe/backup/location.zip` to choose a different
+destination. The source files are never deleted, and existing archives
+are never overwritten. A temporary ZIP is checked against SHA-256
+checksums and published atomically on supported Linux filesystems.
+The original CSV remains the authoritative record.
+
+**Do not use it on a still-running experiment**: an incomplete or
+changing measurement log may be inconsistent even if a copy succeeds.
+This provides a manual retention workflow, not an automatic backup,
+power-loss recovery or long-term bit-rot protection mechanism.
+
 ## File retention
 
 The raw measurement CSV is the authoritative data source; do not
