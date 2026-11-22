@@ -1,5 +1,43 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — New runner GUI features offline CI PASS
+
+Full GitHub Actions workflow **45037162075** succeeded on
+`dev` commit `e4db1adae8e1f1deb2eeb0e0fc89b789fe73b760`,
+with BOTH the Python offline suite and actual headless
+Chromium report job passing. Python regressions include
+conservative CV/CC inference, 15-ohm demo profile-power
+budget, static GUI marker lifecycle and an offscreen Qt
+render test that paints a magenta vertical position marker
+over a real QPixmap without modifying its underlying
+pixels. Initial CI failures were test infrastructure:
+legacy isolated-GUI mocks missing new display methods
+(corrected), then a headless Ubuntu runner missing
+libEGL.so.1 (installed minimal runtime libraries
+in the CI workflow). Final source CI is green.
+
+Latest step-mode hardware screenshot package exported as
+`CPX400DP_v13_6_step_mode_screenshots.zip` containing
+6 original uploads under `docs/screenshots/`, numbered
+08–13, and README.txt; it is provided to the user
+for their own GitHub commit. Actual images are NOT yet
+in the GitHub repository and no Markdown links to them
+should be invented. Existing earlier screenshots are
+a separate optional bundle.
+
+Hardware gate for these NEW features remains: briefly
+observe magenta NOW marker advances and freezes during
+Pause; for the 15-ohm demo, confirm conservative CV/CC
+estimate reacts plausibly to the 0.15 A stage and
+returns to CV when current limit restored. No new
+instrument output-control code was modified. Physical
+original programmed-state restoration and LOCAL must
+still be verified before release. Historical 90s run
+and user-confirmed LOCAL precede this new GUI revision.
+
+`main` stays the v13.5 stable branch, no merge/tag.
+
+
 ## 2026-11-22 — v13.6 follow-up: runner position marker, CV/CC estimates, 15-ohm demo
 
 User submitted **new step-mode/initial-ramp screenshots** from
