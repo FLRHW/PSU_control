@@ -100,7 +100,7 @@ class RegressionTests(unittest.TestCase):
                 readback_poll_enabled=True, measurement_log=path,
                 log_offset=0, log_remainder='', log_columns=None,
                 channel_labels={1:meter}, run_targets={1:{},2:{}},
-                runner_regulation_labels={1:label})
+                runner_regulation_labels={1:label}, final_measurement_channels=set())
             def update(channel, voltage=None, current=None):
                 target = gui.run_targets[channel]
                 state = estimate_regulation(target.get('voltage'),
