@@ -1,5 +1,68 @@
 # v13.6 release candidate — minimal hardware acceptance
 
+## Actual user-side validation — 22 November 2026
+
+**One supervised 90-second hardware demonstration was performed and
+screenshots supplied (seven images).** Screenshots show:
+- OFF-output dual-channel `release_demo_90s_preview.csv` preview
+- `long_1000h_sparse_preview.csv` offline time-axis preview
+- Real paused-profile Manual Control: CH1 measured approximately
+  **2.99 V, 0.20 A**, output **ON**, and programmed **3.00 V,
+  1.00 A**; CH2 not selected. This shows an actual manual
+  adjustment, **not** the CSV's baseline 0.10 A current limit.
+- Supervised `hardware_demo_90s_REQUIRES_LOAD.csv` completed:
+  Profile Runner displays "Completed — restoration verified",
+  CH1 final display ~**-0.01 V, 0.00 A**, CH1 restoration
+  VERIFIED, and runner process exit code **0**.
+- Real HTML report summary: COMPLETED, **558 successful
+  readbacks**, **0 failed**, maximum logged setpoint lateness
+  **0.877 ms**, output-health warnings **0**, implausible
+  high readbacks **0**, expected-settling readbacks **0**,
+  experiment health OK, CH1 final programmed state VERIFIED,
+  and LOCAL command SENT. Physical-output check is marked
+  N/A because target output was OFF/near zero (not a measured
+  safe-terminal-voltage guarantee).
+- User explicitly confirmed **LOCAL restored** on the
+  physical instrument after this run. The screenshots of
+  software restoration are not an independent physical
+  observation of the final programmed V/I/enable; user did
+  not separately report those three front-panel settings.
+- Report waveform zoom/pauses/resumes and instrument diagnostic
+  tables visible; the supplied images show **two pause/resume
+  markers**, but their exact count/timing should not be
+  treated as a pass/fail metric.
+
+**Hardware evidence level:** real 90-second controlled run,
+real manual pause and GUI/HTML reporting, successful recorded
+cleanup, user-observed return to LOCAL. Full original CH1
+programmed V/I/enable front-panel confirmation remains a
+separate optional confirmation before stable release.
+No deliberate real disk-full failure or power-loss test was
+performed. No multi-hour/1000-hour endurance claim.
+
+**Important GUI behaviour observed:** `Mode: linear`,
+`Steps: 0.050 s`, `Readings: 0.250 s` and a 2 s final
+ramp were visible in the OFF-output preview screenshots.
+These are remembered **application defaults**, which
+override the profile file's metadata when using the GUI;
+thus the screenshot plots are smooth interpolations, not
+evidence that step-mode interpolation ran as the profile's
+`# mode=step` header suggests. Users should inspect
+effective GUI defaults before starting a profile.
+Similarly, the paused manual screenshot shows a current
+limit of 1.00 A, not the profile's originally configured
+0.10 A; do not claim the live session remained within
+the example's baseline current-limit setting throughout.
+
+Screenshot PNG assets were received and processed for
+README publication into a separate `CPX400DP_v13_6_readme_screenshots.zip`
+archive supplied to the user. PNGs are **not yet committed**
+to GitHub, and no README screenshot paths should be treated
+as live until that archive is added to the repository.
+Avoid reintroducing visible local path, private bookmark or
+serial information in published captures.
+
+
 **Status:** preparation checklist, not evidence of acceptance. Run after the
 latest dev CI passes. Do not merge dev into main without explicit approval.
 
