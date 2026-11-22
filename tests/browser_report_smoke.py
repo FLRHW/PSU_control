@@ -66,7 +66,7 @@ def main():
                 "() => document.querySelector('.detail-state').textContent.includes('Full resolution')",
                 timeout=15000)
             assert page.locator('svg.plot path[stroke="#13a9c1"]').count() == 1, 'Voltage trace absent'
-            assert '41.73' in page.locator('svg.plot').inner_text(), '39 V spike missing from axis scale'
+            assert '41.73' in page.locator('svg.plot').text_content(), '39 V spike missing from axis scale'
             page.locator('button.cursor').click()
             page.locator('svg.plot').click(position={'x':400,'y':180})
             page.locator('svg.plot').click(position={'x':520,'y':180})
