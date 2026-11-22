@@ -40,6 +40,14 @@ def gather(measurements):
             if candidate.is_file():
                 relatives.append(candidate)
     data_folder = parent / (stem.replace("_measurements", "_report", 1) + "_data")
+    report_path = parent / (stem.replace("_measurements", "_report", 1) + ".html")
+    # Do not silently produce a portable ZIP that loses the raw detail
+    # files needed by the new large-recording HTML viewer.
+    if report_path.is_file() and not data_folder.is_dir():
+        with report_path.open(encoding="utf-8", errors="replace") as report_stream:
+            if any("This large-recording report uses local detail chunks" in line
+                   for line in report_stream):
+                raise ValueError("Streaming report is missing its companion data directory")
     if data_folder.is_dir():
         # A large report must not be archived without its matching HTML.
         report_path = parent / (stem.replace("_measurements", "_report", 1) + ".html")
