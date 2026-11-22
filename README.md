@@ -111,6 +111,16 @@ of existing logs (including interrupted runs):
 
 Audits classify the **recorded** final-state and LOCAL events, not
 actual electrical output or front-panel LOCAL confirmation.
+
+To archive an experiment **after it has finished**, without deleting
+anything or omitting large-report sidecars:
+
+```bash
+/usr/bin/python3 scripts/cpx400dp_archive.py reports/example_measurements.csv
+```
+
+The archive includes a checksum manifest, refuses to overwrite an
+existing ZIP and retains the original files. It is opt-in only.
 Consult [storage and recovery limitations](docs/RECORDING_RECOVERY.md)
 and [large-report details](docs/REPORT_STREAMING.md).
 
