@@ -349,6 +349,10 @@ class OutputHealthMonitor:
         return None
 
 
+class RecordingWriteFailure(OSError):
+    """Measurement CSV is no longer writable; restore PSU before reporting failure."""
+
+
 class OutputFaultAbort(RuntimeError):
     """Sustained physical output collapse; run cleanup in finally."""
 
@@ -712,6 +716,8 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                  'local': 'NOT SENT', 'physical': {ch: 'NOT CHECKED' for ch in channels}}
         next_readback_at = None
         next_progress_at = None
+        logging_error = None
+        cleanup_active = False
         # Advisory-only; reads the output filesystem and never commands the PSU.
         disk_monitor = DiskSpaceMonitor(log_path)
         output_health = OutputHealthMonitor()
@@ -1020,12 +1026,27 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 until_heartbeat = (next_progress_at - now) if next_progress_at is not None else remaining
                 time.sleep(min(remaining, 0.05, max(0.001, until_heartbeat)))
         def log(event, scheduled='', channel='', **kwargs):
+            nonlocal logging_error
+            # Once a write fails, do not repeatedly attempt I/O on the broken
+            # file. During normal execution abort into the established cleanup
+            # path; during cleanup preserve restoration and LOCAL-last attempts.
+            if logging_error is not None:
+                return
             row = {'utc_time':datetime.now(timezone.utc).isoformat(timespec='milliseconds'),
                    'elapsed_s': f'{time.monotonic()-start:.6f}' if start is not None else '',
                    'event':event, 'scheduled_s':scheduled, 'channel':channel}
             row.update(kwargs)
-            writer.writerow(row)
-            f.flush()
+            try:
+                writer.writerow(row)
+                f.flush()
+            except (OSError, csv.Error) as exc:
+                logging_error = f'{type(exc).__name__}: {exc}'
+                print('[RECORDING WRITE FAILURE] Measurement CSV is incomplete; '
+                      'attempting configured restoration and LOCAL. '
+                      + logging_error, file=sys.stderr, flush=True)
+                if not cleanup_active:
+                    raise RecordingWriteFailure(logging_error) from exc
+                return
             if event == 'final_state_verified' and channel in stats['final']:
                 stats['final'][channel] = 'VERIFIED'
             elif event == 'final_state_error' and channel in stats['final']:
@@ -1171,7 +1192,6 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 socket_stack.callback(lambda: os.path.exists(path) and os.unlink(path))
                 socket_stack.enter_context(pause_listener)
                 print('[PAUSE CONTROL READY] Private local socket active', flush=True)
-            log('discovery', note=f'{resolved_host}:9221 interface={resolved_interface or "system route"}')
             pending = b''
             original = {}
             output_known = {ch: None for ch in channels}
@@ -1181,6 +1201,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
             captured = False
             cleanup_errors = []
             try:
+                log('discovery', note=f'{resolved_host}:9221 interface={resolved_interface or "system route"}')
                 # Always snapshot selected channels: needed for initial ramp,
                 # and for restoring original setpoints/output states.
                 # A recently interrupted session can leave a transient stale
@@ -1326,6 +1347,7 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 print('\nInterrupted by Ctrl+C; attempting configured final-state cleanup ...', flush=True)
                 log('interrupted', note='Ctrl+C received; starting final-state cleanup')
             finally:
+                cleanup_active = True
                 # Cleanup is attempted even after Ctrl+C and query errors.
                 # On errors, skip the leisurely final ramp and promptly restore.
                 # A saved ON output is never deliberately disabled for a ramp.
@@ -1414,6 +1436,10 @@ def execute(path, output_dir=None, overrides=None, run_id=None, *, psu_ip=None, 
                 if cleanup_errors:
                     print('WARNING: ' + '; '.join(cleanup_errors), file=sys.stderr)
                     raise RuntimeError('Cleanup not fully verified; check PSU settings and LOCAL mode')
+                if logging_error is not None:
+                    # Cleanup may have succeeded, but the recording is not
+                    # trustworthy and the process must not report success.
+                    raise RecordingWriteFailure('Recording incomplete: ' + logging_error)
             if fault_abort:
                 print('ABORTED: sustained output fault; configured final states restored; LOCAL sent.', flush=True)
                 return 2
@@ -1523,8 +1549,7 @@ def main():
         # events are logged. That is a valid failed run, not a plotting error.
         try:
             with log_path.open(newline='', encoding='utf-8-sig') as f:
-                events = list(csv.DictReader(f))
-            has_measurements = any(row.get('event') == 'readback' for row in events)
+                has_measurements = any(row.get('event') == 'readback' for row in csv.DictReader(f))
         except (OSError, csv.Error) as exc:
             print(f'WARNING: Cannot inspect measurement log for report: {exc}', file=sys.stderr)
             has_measurements = False
