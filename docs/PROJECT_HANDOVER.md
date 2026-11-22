@@ -1,5 +1,63 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — Real 90-second demo completed; LOCAL physically restored
+
+User supplied seven live screenshot captures from v13.6
+testing and explicitly confirmed **LOCAL restored on PSU**.
+Evidence in actual GUI/report screenshots:
+- `release_demo_90s_preview.csv` OFF-output dual-channel
+  preview and `long_1000h_sparse_preview.csv` 1000h
+  OFF-output offline preview (no hardware implied).
+- Real paused-profile Manual Control with CH1 measured
+  2.99 V / 0.20 A and output ON; programmed 3.00 V /
+  1.00 A. This is temporary manual control, higher
+  current limit than the example CSV baseline 0.10 A.
+- Completed `hardware_demo_90s_REQUIRES_LOAD.csv`,
+  GUI "Completed — restoration verified", runner exit
+  code 0, final CH1 display -0.01 V / 0.00 A.
+- Actual HTML report: COMPLETED; 558 good readbacks,
+  zero failed; 0.877 ms max recorded setpoint lateness;
+  0 output-health warnings, 0 unexplained high
+  readbacks, 0 expected-settling readbacks;
+  CH1 programmed final state VERIFIED; LOCAL command
+  SENT. Physical output check N/A (output OFF or
+  near-zero intended); this does not independently
+  verify terminal electrical safety.
+- Real waveform/report zoom with multiple pause/resume
+  markers, and real diagnostics snapshot displayed.
+  User independently confirmed LOCAL restored.
+
+**Hardware acceptance state:** successful supervised
+90s experiment with pause/manual/resume, software
+restoration and physically confirmed LOCAL. Actual
+front-panel programmed CH1 original V/I/enable values
+after completion are not separately reported; do not
+claim that check independently completed.
+
+**Documentation/screenshots:** seven original supplied
+PNGs privately held in conversation and a cropped,
+browser-bookmarks/paths-redacted `CPX400DP_v13_6_readme_screenshots.zip`
+prepared for user download and minimal local commit.
+They are not currently uploaded to GitHub. Do not
+invent GitHub image paths/links before user commits.
+Actual screenshots are *not synthetic*.
+The preview screenshots show GUI application defaults
+Mode=linear, interval=0.05s, readback=0.25s, final
+ramp=2s; persisted GUI defaults take precedence over
+metadata embedded in the step-mode examples. Explain
+this in captions; don't call screenshot a step-mode test.
+
+**Remaining release gate:** seek one concise user
+confirmation of physical CH1 original programmed V/I
+and output-enable restoration, if it was observed,
+and upload supplied screenshots. Then final CI and
+explicit release merge approval. No main branch change
+or tag has been made. No additional 90s run required
+if the user already observed proper programmed state.
+No multi-day endurance, real ENOSPC or power-failure
+safety claim is supported.
+
+
 ## 2026-11-22 — Stage A final offline acceptance PASS (release-candidate source)
 
 **GitHub Actions run 45033881762: SUCCESS**, on exact `dev`
