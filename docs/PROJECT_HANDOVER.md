@@ -1,5 +1,76 @@
 # CPX400DP controller — engineering handover
 
+## 2026-11-22 — v13.6 follow-up: runner position marker, CV/CC estimates, 15-ohm demo
+
+User submitted **new step-mode/initial-ramp screenshots** from
+another supervised 90s run and an actual HTML report. The supplied
+HTML summary states: COMPLETED; **469 successful readbacks**,
+**0 failed**, max logged setpoint lateness **2.143 ms**,
+0 output-health warnings, 0 unexplained high readbacks,
+0 expected-settling readbacks, experiment health OK, final
+CH1 programmed state VERIFIED and LOCAL command SENT.
+Measured sampled power peaked **1.07 W** with
+**0.18 W** average and estimated energy **21.7 J**.
+Unlike the earlier linear screenshots, updated preview
+shows true stepped setpoints and **2 s initial/final
+ramp overrides**. Report includes actual pause/resume,
+a transient 1 A manual current limit, and diagnostic
+LSR1 final=3; simultaneous CV/CC event bits do **not**
+establish current mode or event ordering. User's load
+is **15 ohms, 10 W continuous, 40 W for 0.5 s**.
+
+User requested (1) a moving vertical 'NOW' line on
+the Profile Runner preview and (2) runner CV/CC mode
+indication, absent from normal Profile Runner but
+historically present as LSR last-event in Manual Control.
+Implemented GUI-only marker as a QPainter overlay
+in `ProfileProgressImage`, mapping chart time
+to the Matplotlib axes x=[0.105,0.88] and updating
+every 200 ms based on existing [PROGRESS] heartbeat
+and monotonic extrapolation. Subtract initial ramp
+duration so marker starts at CSV time 0, freezes during
+paused/stopping phases, clamps to plot duration and
+stays displayed at 100% after completed run.
+No edits to preview PNG/CSV source and no PSU queries.
+
+Added `scripts/cpx400dp_regulation_estimate.py`
+and Profile Runner labels `CV likely (V/I estimate)`,
+`CC likely (V/I estimate)` or UNKNOWN. Based on
+already logged commanded V/current/enable and
+measured V/I; rejects OFF, low targets, ambiguous
+or implausible values. These are explicitly
+**heuristic V/I estimates and NOT instrument-verified
+real-time modes**, and separate from the existing
+Manual Control last-seen LSR read-and-clear events.
+Does not issue extra SCPI LSR reads or alter timing,
+socket ownership, PSU safety/restore code. Labels
+reset to UNKNOWN after runner exit.
+
+Added `profiles/examples/hardware_demo_90s_15ohm_REQUIRES_LOAD.csv`.
+At 15 ohms, maximum 8 V corresponds to ~0.533 A
+and **4.27 W**, below resistor's 10 W nominal
+continuous rating. Deliberate 6 V/0.15 A interval
+at 40-50s should enter CC around 2.25 V if the
+resistive load is as stated; a 0.65 A limit at
+50s allows return toward CV. Elsewhere maximum
+configured I limit is 0.65 A. Live output and
+restoration require supervision and careful check
+of GUI's persisted initial/final ramps and prior
+instrument state. Existing demo profile retained
+unchanged as historical evidence, not overwritten.
+Added pure inference tests, profile power-budget
+checks and headless Qt overlay rendering regression.
+
+**Status:** source implemented; complete CI must be
+recorded for the final dev SHA before offline pass
+can be claimed. New GUI behaviour has not yet
+been physically validated. Earlier 90s hardware
+runs predate these new UI additions; they are
+not evidence that the moving line/estimation work.
+Main stays v13.5, unmerged/untagged. Keep user's
+local profiles/18.csv untouched.
+
+
 ## 2026-11-22 — Real 90-second demo completed; LOCAL physically restored
 
 User supplied seven live screenshot captures from v13.6
