@@ -24,10 +24,17 @@ explicit user approval.
   and guarded Resume; Stop requests verified restoration and LOCAL
 - Standalone Manual Control with programmed V/I/enable state,
   measurement readbacks and clear output-state indicators
+- Profile Runner channel readouts display conservative `CV likely` / `CC likely`
+  estimates derived from already logged programmed and measured values;
+  UNKNOWN for ambiguous states. These are **not** instrument-verified
+  real-time regulation-mode readings. Manual Control's LSR mode labels
+  remain explicitly last observed read-and-clear events.
 - Read-only PSU discovery/identification in **Network settings…**,
   with last successfully verified host/interface remembered
 - Offline previews and dynamic seconds/minutes/hours/days axes;
-  lazy scheduling of very long sparse-keyframe profiles
+  lazy scheduling of very long sparse-keyframe profiles;
+  **moving magenta NOW marker** tracking estimated live profile position,
+  accounting for initial ramp and frozen while paused
 - Offline HTML measurement reports with selectable V/I/P traces,
   zoom, pan, cursors and large-log local on-demand detail chunks
 - Read-only recording audit and advisory disk-space warnings,
@@ -75,6 +82,14 @@ not necessary for the already-configured static bench link.
 | [Seven-day linear preview](profiles/examples/long_7d_linear_preview.csv) | 7 days | Eight dual-channel keyframes; outputs OFF |
 | [1,000-hour step preview](profiles/examples/long_1000h_sparse_preview.csv) | 1,000 h | Eleven dual-channel keyframes; outputs OFF |
 | [Optional supervised live demo](profiles/examples/hardware_demo_90s_REQUIRES_LOAD.csv) | 90 s | CH1 up to 3 V with a 0.10 A current limit; **REQUIRES an appropriate resistive load** |
+| [15 Ω, 10 W load demo](profiles/examples/hardware_demo_90s_15ohm_REQUIRES_LOAD.csv) | 90 s | CH1 up to 8 V (~4.27 W at 15 Ω), with a 10-second 0.15 A current-limiting interval; supervised test only |
+
+For a **15 Ω resistor rated 10 W continuous**, the revised live example
+peaks at 8 V, equivalent to about 0.533 A and 4.27 W; the 40–50 s
+interval requests 6 V with a 0.15 A limit and can illustrate CC operation.
+Review the GUI's effective application defaults and the PSU's original
+programmed state before running. This remains a supervised example,
+not a hardware interlock or a guarantee about other loads.
 
 All preview fixtures are for inspecting time axes and waveforms
 **without running the PSU**. Their requested OFF state is not permission
