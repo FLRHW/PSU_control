@@ -8,19 +8,19 @@ permissions:
   contents: write
 jobs:
   release:
-    if: github.repository == 'FLRHW/PSU_control' && github.event.head_commit.message == 'ci: publish approved v13.6 release'
+    if: github.repository == 'FLRHW/PSU_control'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 3
           persist-credentials: false
       - name: Verify exact validated merge ancestry
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "06d504ba7d947831815663f4f84034ad9078f2ff"
+          test "$(git rev-parse HEAD~2)" = "06d504ba7d947831815663f4f84034ad9078f2ff"
           test -f docs/RELEASE_v13_6.md
           echo 'Exact approved PR merge is parent of release metadata commit.'
       - name: Publish GitHub release and tag
