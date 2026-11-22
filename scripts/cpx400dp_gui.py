@@ -14,12 +14,13 @@ import tempfile
 import io
 import signal
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 try:
     from PySide6.QtCore import Qt, QProcess, QThread, Signal, QUrl, QSettings, QTimer
-    from PySide6.QtGui import QDesktopServices, QPixmap, QFont
+    from PySide6.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
@@ -30,7 +31,7 @@ try:
 except ImportError:
     try:
         from PyQt5.QtCore import Qt, QProcess, QThread, pyqtSignal as Signal, QUrl, QSettings, QTimer
-        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont
+        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
         from PyQt5.QtWidgets import (
             QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
             QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
@@ -50,11 +51,41 @@ from cpx400dp_gui_core import (
     parse_heartbeat, parse_final_verification, classify_run
 )
 from cpx400dp_preview import profile_summary, generate_preview
+from cpx400dp_regulation_estimate import estimate_regulation
 from cpx400dp_manual import ManualWorker
 from cpx400dp_network_setup import (diagnose_connection, setup_ethernet_link_local,
                                      network_route_summary, instrument_route_summary)
 
 HERE = Path(__file__).resolve().parent
+
+
+class ProfileProgressImage(QLabel):
+    """Draw a moving progress marker over a static generated preview image.
+
+    Matplotlib uses left=.105 and right=.88 for its axes. The marker
+    only changes GUI pixels; no CSV or preview file is modified.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.profile_fraction = None
+
+    def set_profile_fraction(self, fraction):
+        self.profile_fraction = None if fraction is None else max(0., min(1., float(fraction)))
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.profile_fraction is None or self.pixmap() is None:
+            return
+        # Pixmap is fitted exactly to this label in display_preview_pixmaps.
+        width, height = self.width(), self.height()
+        x = round(width * (0.105 + 0.775 * self.profile_fraction))
+        painter = QPainter(self)
+        painter.setPen(QPen(QColor('#a622ac'), 2))
+        painter.drawLine(x, round(height * .08), x, round(height * .92))
+        painter.setPen(QColor('#81218a'))
+        painter.drawText(min(width - 38, x + 5), max(12, round(height * .08) + 14), 'NOW')
+        painter.end()
 
 
 class PreviewJob(QThread):
@@ -171,6 +202,13 @@ class Window(QMainWindow):
         self.log_remainder = ''
         self.log_columns = None
         self.original_preview_pixmaps = []
+        self.preview_progress_pictures = []
+        self.profile_progress_fraction = None
+        self.profile_duration_s = None
+        self.run_initial_ramp_s = 0.0
+        self.last_progress_clock = None
+        self.last_progress_elapsed = None
+        self.run_targets = {1: {}, 2: {}}
         self.pending_preview_refresh = False
         self._setting_defaults = {}
         self.preview_debounce = QTimer(self)
@@ -180,6 +218,10 @@ class Window(QMainWindow):
         self.measurement_timer = QTimer(self)
         self.measurement_timer.setInterval(250)
         self.measurement_timer.timeout.connect(self.poll_measurements)
+        self.preview_cursor_timer = QTimer(self)
+        self.preview_cursor_timer.setInterval(200)
+        self.preview_cursor_timer.timeout.connect(self.update_preview_cursor)
+        self.preview_cursor_timer.start()
         # QSettings uses the standard per-user configuration directory on Kubuntu.
         # Last-used folders are remembered; never persist instrument credentials.
         self.settings = QSettings('CPX400DP', 'ControlGUI')
@@ -422,6 +464,7 @@ class Window(QMainWindow):
         readout_layout.addLayout(left, 2)
         self.channel_labels = {}
         self.restore_labels = {}
+        self.runner_regulation_labels = {}
         for ch in (1, 2):
             group = QVBoxLayout()
             title = QLabel(f'Channel {ch}')
@@ -432,11 +475,16 @@ class Window(QMainWindow):
             restore.setStyleSheet('color: #586779; font-size: 12px;')
             group.addWidget(title)
             group.addWidget(values)
+            regulation = QLabel('REGULATION: UNKNOWN')
+            regulation.setStyleSheet('font-size: 11px; color: #536173;')
+            regulation.setToolTip('Estimated from logged programmed V/I and measured V/I; not a live PSU CV/CC mode readback.')
+            group.addWidget(regulation)
             group.addWidget(restore)
             group.addStretch()
             readout_layout.addLayout(group, 1)
             self.channel_labels[ch] = values
             self.restore_labels[ch] = restore
+            self.runner_regulation_labels[ch] = regulation
         layout.addWidget(readouts)
 
         splitter = QSplitter(Qt.Vertical)
@@ -1113,6 +1161,8 @@ class Window(QMainWindow):
         # preview result, which may be stale while a new preview is pending.
         self.clear_plots()
         self.original_preview_pixmaps = []
+        self.profile_duration_s = float(info['duration_s'])
+        self.set_preview_progress(None)
         for title, blob in images:
             original = QPixmap()
             if original.loadFromData(blob, 'PNG'):
@@ -1128,6 +1178,7 @@ class Window(QMainWindow):
         crop the pixmap. The scroll area handles exceptionally narrow windows.
         """
         self.clear_plots()
+        self.preview_progress_pictures = []
         if not self.original_preview_pixmaps:
             return
         count = len(self.original_preview_pixmaps)
@@ -1145,15 +1196,54 @@ class Window(QMainWindow):
             heading = QLabel(title.split(' voltage')[0])
             heading.setStyleSheet('font-weight: 650;')
             block_layout.addWidget(heading)
-            picture = QLabel()
+            picture = ProfileProgressImage()
             picture.setAlignment(Qt.AlignTop | Qt.AlignLeft)
             scaled = original.scaled(width, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             picture.setPixmap(scaled)
             picture.setFixedSize(scaled.size())
+            picture.set_profile_fraction(self.profile_progress_fraction)
+            self.preview_progress_pictures.append(picture)
             block_layout.addWidget(picture)
             self.plots_layout.addWidget(block)
         if count == 1:
             self.plots_layout.addStretch(1)
+
+    def set_preview_progress(self, fraction):
+        self.profile_progress_fraction = fraction
+        for picture in self.preview_progress_pictures:
+            picture.set_profile_fraction(fraction)
+
+    def update_preview_cursor(self):
+        # Extrapolate only between runner heartbeat messages, never while
+        # paused, stopping or in restoration. This is GUI-only animation.
+        if not self.running or self.last_progress_elapsed is None:
+            return
+        elapsed = self.last_progress_elapsed
+        if (not self.paused and not self.stopping and
+                self.last_phase in ('profile', 'Main profile') and
+                self.last_progress_clock is not None):
+            elapsed += min(2., max(0., time.monotonic() - self.last_progress_clock))
+        if self.profile_duration_s and self.profile_duration_s > 0:
+            fraction = ((elapsed - self.run_initial_ramp_s) /
+                        self.profile_duration_s)
+            self.set_preview_progress(max(0., min(1., fraction)))
+
+    def update_runner_regulation(self, channel, measured_voltage=None, measured_current=None):
+        label = self.runner_regulation_labels.get(channel)
+        if label is None:
+            return
+        target = self.run_targets.get(channel, {})
+        result = estimate_regulation(
+            target.get('voltage'), target.get('current'), target.get('enabled'),
+            measured_voltage, measured_current)
+        if result:
+            label.setText('REGULATION: ' + result + ' (V/I estimate)')
+            label.setStyleSheet('font-size: 11px; font-weight: 650; color: #176a4a;'
+                                if result.startswith('CV') else
+                                'font-size: 11px; font-weight: 650; color: #a76813;')
+        else:
+            label.setText('REGULATION: UNKNOWN')
+            label.setStyleSheet('font-size: 11px; color: #536173;')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -1193,14 +1283,29 @@ class Window(QMainWindow):
                         self.log_columns = {key: idx for idx, key in enumerate(fields)}
                     continue
                 col = self.log_columns
-                if fields[col['event']] != 'readback':
+                event = fields[col['event']]
+                if event not in ('readback', 'setpoint', 'initial_ramp',
+                                 'final_ramp', 'manual_setpoint', 'pause_hold'):
                     continue
                 ch = int(fields[col['channel']])
                 if ch not in self.channel_labels:
                     continue
+                if event != 'readback':
+                    target = self.run_targets.setdefault(ch, {})
+                    for column, key in (('set_voltage_v', 'voltage'),
+                                        ('current_limit_a', 'current')):
+                        value = fields[col[column]].strip()
+                        if value:
+                            target[key] = float(value)
+                    enable = fields[col['requested_enable']].strip()
+                    if enable in ('0','1'):
+                        target['enabled'] = enable == '1'
+                    self.update_runner_regulation(ch)
+                    continue
                 v = float(fields[col['measured_voltage_v']])
                 a = float(fields[col['measured_current_a']])
                 self.channel_labels[ch].setText(f'{v:.2f} V   {a:.2f} A')
+                self.update_runner_regulation(ch, v, a)
             except (ValueError, IndexError, csv.Error, KeyError):
                 continue
 
@@ -1222,6 +1327,7 @@ class Window(QMainWindow):
         selected = self.displayed_channels()
         for ch in (1, 2):
             self.channel_labels[ch].setText('— V   — A')
+            self.update_runner_regulation(ch)
             label = self.restore_labels[ch]
             label.setText('Restoration: not checked' if ch in selected else
                           'N/A — channel not selected')
@@ -1244,6 +1350,10 @@ class Window(QMainWindow):
         self.log_remainder = ''
         self.log_columns = None
         self.progress.setValue(0)
+        self.set_preview_progress(None)
+        self.last_progress_elapsed = None
+        self.last_progress_clock = None
+        self.run_targets = {1: {}, 2: {}}
         self.phase_label.setText('Phase: Idle')
         self.run_summary = ''
         self.success_summary = False
@@ -1316,8 +1426,16 @@ class Window(QMainWindow):
         self.run_summary = ''
         self.final_states = {}
         self.last_phase = ''
-        self.run_channels = set(profile_summary(self.profile, overrides=self.active_overrides())['channels'])
+        run_info = profile_summary(self.profile, overrides=self.active_overrides())
+        self.run_channels = set(run_info['channels'])
+        self.profile_duration_s = run_info['duration_s']
+        self.run_initial_ramp_s = run_info['initial_ramp_s']
+        self.run_targets = {1: {}, 2: {}}
+        self.last_progress_elapsed = None
+        self.last_progress_clock = None
+        self.set_preview_progress(0.)
         for ch in (1, 2):
+            self.update_runner_regulation(ch)
             self.channel_labels[ch].setText('— V     — A')
             self.restore_labels[ch].setText('Restoration: pending' if ch in self.run_channels
                                             else 'N/A — channel not selected')
@@ -1496,10 +1614,13 @@ class Window(QMainWindow):
                                 'color: #b42318; font-weight: 650;')
         progress = parse_heartbeat(line)
         if progress:
+            self.last_progress_elapsed = progress['elapsed_s']
+            self.last_progress_clock = time.monotonic()
             self.progress.setValue(progress['percent'])
             phase = progress['phase']
             self.last_phase = phase
             self.phase_label.setText('Phase: ' + phase.replace('_', ' ').title())
+            self.update_preview_cursor()
             if phase == 'paused':
                 self.paused = True
                 self.pause_btn.setText('▶ Resume')
@@ -1600,6 +1721,7 @@ class Window(QMainWindow):
         self.poll_measurements()
         self.measurement_timer.stop()
         self.running = False
+        self.last_progress_clock = None
         self.pause_manual_active = False
         self.manual_online = False
         self.manual_widgets_enabled(False)
@@ -1629,6 +1751,7 @@ class Window(QMainWindow):
             if self.experiment_health_failed:
                 self.status.setText('Completed / restored — EXPERIMENT HEALTH WARNING (see log)')
             self.progress.setValue(100)
+            self.set_preview_progress(1.)
             self.phase_label.setText('Phase: Complete')
         elif kind == 'stopped':
             self.phase_label.setText('Phase: Stopped — cleanup complete')
