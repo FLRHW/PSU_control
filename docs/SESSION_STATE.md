@@ -1,5 +1,34 @@
 # CPX400DP — current session state
 
+## 2026-11-22 — Post-v13.6 release icon refinement
+
+User approved new icon appearance: **remove outer blue border
+and navy square background, use pure black background** while
+keeping the illustrated dual-channel PSU face, cyan waveform
+screens and controls. Updated the installed application's
+**source SVG** `assets/cpx400dp-control.svg` on `main`:
+removed the blue-bordered navy gradient rounded rectangle,
+replaced it with a full 256×256 #000000 black canvas.
+The rest of the scalable power-supply illustration is
+unchanged. Updated offline launcher tests to parse SVG
+and assert solid black, no former blue background/contour.
+No GUI, power-supply, network or control changes.
+
+The `scripts/install_desktop_launcher.py` installer already
+safely updates existing user-managed launchers and installs
+the current SVG to `~/.local/share/icons/hicolor/scalable/apps`.
+After pulling `main`, rerun the installer with
+`/usr/bin/python3 scripts/install_desktop_launcher.py`,
+then reopen the KDE launcher; if Plasma caches an old image,
+refresh the icon cache/restart Plasma session.
+No `sudo` or repo-location hardcoding needed.
+The original published `v13.6` tag is IMMUTABLE;
+this is a post-release `main` icon-only follow-up,
+not a retroactive alteration of the release artifact.
+Also configured offline Python + Chromium workflow to run
+for future `main` branch pushes, in addition to `dev`.
+
+
 ## 2026-11-22 — v13.6 release authorisation; KDE launcher installation
 
 User explicitly approved releasing v13.6 **after adding a KDE
