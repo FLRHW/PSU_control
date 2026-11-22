@@ -1,96 +1,155 @@
 # CPX400DP PSU Control
 
-**Current development baseline: v13.6 on `dev` (offline-tested, hardware validation pending).**  
-**Stable baseline: v13.5 merged to `main` (hardware validation completed 2026-11-15).**
+Linux/Kubuntu desktop tool for controlling a dual-channel
+Aim-TTi / Thurlby Thandar CPX400DP power supply over Ethernet:
+CSV profile playback, standalone and paused-profile manual control,
+offline preview, measured readbacks, and interactive HTML reports.
 
-Linux/Kubuntu Python control application for Aim-TTi CPX400DP PSU, supporting CSV profile execution, pause/manual/resume, Ethernet discovery, interactive reports and standalone manual control.
+**Release status:** v13.6 is a release candidate under development
+on `dev`; **v13.5 on `main` remains the stable version**.
+v13.6 must not be merged/tagged until the remaining hardware
+acceptance and user approval are recorded.
 
-## Version status
+## Features
 
-| Version | Branch / evidence | Status |
+- Two-channel CSV profiles with step or linear interpolation,
+  output enable control, optional initial/final ramps and saved-state
+  restoration; minimum scheduled setpoint spacing 50 ms
+- Pausing a run, temporarily changing settings with Manual Control,
+  and guarded Resume; Stop requests verified restoration and LOCAL
+- Standalone Manual Control with programmed V/I/enable state,
+  measurement readbacks and clear output-state indicators
+- Read-only PSU discovery/identification in **Network settings…**,
+  with last successfully verified host/interface remembered
+- Offline previews and dynamic seconds/minutes/hours/days axes;
+  lazy scheduling of very long sparse-keyframe profiles
+- Offline HTML measurement reports with selectable V/I/P traces,
+  zoom, pan, cursors and large-log local on-demand detail chunks
+- Read-only recording audit and advisory disk-space warnings,
+  plus CSV write-failure containment to preserve cleanup attempts
+
+For complete behaviour, limitations and historical findings see
+[engineering handover](docs/PROJECT_HANDOVER.md),
+[current session state](docs/SESSION_STATE.md), and the
+[v13.6 release candidate](docs/RELEASE_CANDIDATE_v13_6.md).
+
+## Installation and launch
+
+The application uses Python 3 on Linux and the Qt GUI binding already
+available on the workstation (PyQt5 or PySide6). Offline preview
+and report plots require Matplotlib. No internet is needed at runtime.
+
+Launch on Kubuntu from the project root:
+
+```bash
+/usr/bin/python3 scripts/cpx400dp_gui.py
+```
+
+In the GUI, choose a CSV profile, select a folder for generated reports
+(e.g. `reports/`), preview it, and open **Network settings…** to
+enter the instrument IPv4 address/interface if needed. **Test connection**
+performs read-only `*IDN?` identification and closes its test socket.
+Only pressing Start or connecting Manual Control establishes a
+control session. The runner takes a verified initial snapshot before
+changing programmed settings, attempts configured final restoration,
+and sends `LOCAL` as its last instrument command.
+
+On the validated dual-instrument bench the PSU uses
+`192.168.71.2` over the dedicated Dell D6000 Ethernet adapter.
+Another workstation will have different addresses and interface names;
+do not copy or overwrite other networking configurations. The earlier
+link-local discovery and opt-in adapter setup remain available but are
+not necessary for the already-configured static bench link.
+
+## Example CSV profiles
+
+| File | Duration | Purpose |
 | --- | --- | --- |
-| v13.3 | `docs/RELEASE_v13_3.md` | Historical imported baseline |
-| v13.4 | Subsequent changes on `dev`; `docs/RELEASE_v13_4.md` | Historical development milestone: output-state buttons, coloured indicators, confirmation-free Resume |
-| v13.5 | Merged into `main`, PR #1 / `7d5b393`; historical `docs/RELEASE_v13_5.md` | Hardware acceptance Stages 1–3 passed (see session state); latest pre-merge CI passed |
-| v13.6 | `dev`; `docs/SESSION_STATE.md` | In development: lazy long-duration schedule, adaptive preview/report axes, last-observed CC/CV event indicators; offline-tested, **not hardware validated** |
+| [Release GUI screenshot preview](profiles/examples/release_demo_90s_preview.csv) | 90 s | Two-channel step plot; both outputs commanded OFF; offline screenshot fixture |
+| [24-hour step preview](profiles/examples/long_24h_step_preview.csv) | 24 h | Five sparse keyframes; output OFF |
+| [Seven-day linear preview](profiles/examples/long_7d_linear_preview.csv) | 7 days | Eight dual-channel keyframes; outputs OFF |
+| [1,000-hour step preview](profiles/examples/long_1000h_sparse_preview.csv) | 1,000 h | Eleven dual-channel keyframes; outputs OFF |
+| [Optional supervised live demo](profiles/examples/hardware_demo_90s_REQUIRES_LOAD.csv) | 90 s | CH1 up to 3 V with a 0.10 A current limit; **REQUIRES an appropriate resistive load** |
 
-Version labels do not establish a Git tag by themselves. v13.5 hardware tests and source evidence are documented in `docs/SESSION_STATE.md`. The v13.5 annotated tag has not been independently confirmed. The current v13.6 code has passed GitHub Actions offline tests, but **has not been tested on hardware**.
+All preview fixtures are for inspecting time axes and waveforms
+**without running the PSU**. Their requested OFF state is not permission
+for unattended hardware operation. The live demo needs a bench safety
+check and must be supervised. See
+[the short hardware acceptance checklist](docs/HARDWARE_ACCEPTANCE_v13_6.md).
 
-## Documentation to read first
-
-- [Engineering handover](docs/PROJECT_HANDOVER.md): architecture, protocol, safety invariants, decisions, historical evidence
-- [Session state](docs/SESSION_STATE.md): current development status, validation gaps and next steps
-- [v13.5 historical notes](docs/RELEASE_v13_5.md): manual-control behaviour at that milestone
-- [v13.4 historical notes](docs/RELEASE_v13_4.md), [v13.3 historical notes](docs/RELEASE_v13_3.md)
-
-## Layout
-
-- `scripts/` — application and SCPI modules
-- `profiles/` — reusable legacy and waveform-only CSV profiles
-- `profiles/negative_tests/` — **deliberately invalid fixtures; never run on hardware**
-- `tests/` — offline regression suite
-- `docs/` — operating instructions, handover, session state and release history
-- `reports/` — untracked local output (measurement logs, reports, etc.)
-
-## Run
+Generate a 1,000-hour offline preview:
 
 ```bash
-python3 scripts/cpx400dp_gui.py
+/usr/bin/python3 scripts/cpx400dp_run_enhanced.py \
+  --preview profiles/examples/long_1000h_sparse_preview.csv
 ```
 
-Choose a profile from `profiles/` using the GUI. Set the output folder to `reports/` for generated files.
+A synthetic 1,000-hour measurement CSV with a brief artificial peak
+is available in the supplementary examples bundle supplied during
+development; it is **fictional**, never a real PSU hardware run.
 
-## Tests
+## Reports and recording checks
+
+For CSV logs smaller than 8 MiB, the report is a self-contained HTML
+file. Larger logs generate an HTML report **plus a matching
+`*_report_data/` directory**, containing per-channel data chunks
+loaded as the browser zooms in. Keep the folder beside its report HTML;
+preserve the original measurement CSV as the authoritative source.
+
+To generate a report from a recording:
 
 ```bash
-PYTHONPATH=scripts python3 -m unittest discover -s tests -p 'test_*.py'
+/usr/bin/python3 scripts/cpx400dp_report.py reports/example_measurements.csv
 ```
 
-Manual voltage/current spinboxes and displayed live V/A values show two decimal places. Internally stored precision, SCPI payloads, and logged measurements are not rounded by this display-only change.
+The report generator needs no connection to the PSU. For an audit
+of existing logs (including interrupted runs):
 
-## v13.6 networking — first-use connection test
+```bash
+/usr/bin/python3 scripts/cpx400dp_recording_audit.py reports
+```
 
-In Profile Runner, use **Test connection** before running a profile. The test
-identifies the CPX400DP with read-only `*IDN?`, displays the verified host
-and network interface, and closes its temporary TCP socket; **no output
-commands, experiment start or PSU network changes occur**.
+Audits classify the **recorded** final-state and LOCAL events, not
+actual electrical output or front-panel LOCAL confirmation.
+Consult [storage and recovery limitations](docs/RECORDING_RECOVERY.md)
+and [large-report details](docs/REPORT_STREAMING.md).
 
-If the test reports an unconfigured physical Ethernet adapter (for example,
-a Dell D6000 dock), **Prepare adapter…** offers an **optional, confirmed**
-one-time automatic link-local IPv4 profile using NetworkManager (`nmcli`).
-NetworkManager/Polkit may require desktop authorisation. Setup is refused when
-the selected interface already has an IPv4 address or an active NetworkManager
-connection. The application does not automatically reconfigure existing
-Wi-Fi, other instrument ports, or PSU network parameters. In a managed
-network, DHCP and read-only discovery remain the default.
+## Offline regression
 
-For separate directly connected instruments with overlapping `169.254/16`
-ranges, discovery binds TCP and multicast traffic to the selected adapter
-and a local source address on that adapter. After a successful test, Profile
-Runner and Manual Control reuse the discovered IP/interface fields, but
-every actual run still makes a fresh verified control connection.
+```bash
+PYTHONPATH=scripts /usr/bin/python3 -m unittest discover -s tests -p 'test_*.py'
+```
 
-A PSU that was recently powered on may require around 30 seconds to obtain
-its Auto-IP address. A second **Test connection** may then succeed without
-configuring static addresses. If several instruments match, specify the
-intended IP and network adapter rather than using an arbitrary first match.
+GitHub Actions additionally runs the full Python suite and an isolated
+headless Chromium browser test for a synthetic long report. Browser
+testing is performed in CI; the user does not need to install
+Playwright locally.
 
-The CSV chooser now remembers the last selected folder across launches.
-On first use, it starts at `profiles/`, rather than `~/Downloads`.
+## Release screenshots
 
-**Scope:** these networking changes are **offline-tested only**. They
-require real dock/PSU and NetworkManager validation before release. More
-development items are tracked in [the backlog](docs/BACKLOG.md).
+The planned README screenshots are documented in the
+[release acceptance guide](docs/HARDWARE_ACCEPTANCE_v13_6.md).
+They will be added here **only after genuine PNG files have
+been supplied, reviewed and committed**. Synthetic examples must
+be labelled synthetic, and real screenshots must not disclose
+unwanted network or serial information.
 
-## v13.6 development notes
+## Version history and development records
 
-- The scheduler validates and streams a synthetic 1,000-hour profile with 50 ms update intervals without allocating every tick in advance. This does **not** validate 41-day unattended execution.
-- Offline preview and report time axes adapt to seconds, minutes, hours or days. The report JavaScript avoids large argument-list spreads and retains local extrema in the displayed viewport. However, the report generator still reads full CSV logs into memory; processing truly massive recordings is **not yet solved**.
-- Manual Control displays `CV`, `CC`, `UNREG` or `FAULT` as **last observed status events**, or UNKNOWN. CPX400DP `LSR1?`/`LSR2?` registers are **read-and-clear event registers**, not live regulation-mode readbacks. These labels are not guaranteed real-time mode information. Standalone Manual Control and paused-profile Manual Control use their existing single socket owners.
-- v13.6 is development-only; no hardware safety or long-term reliability guarantee.
+| Version | Status |
+| --- | --- |
+| v13.3 | [Historical release notes](docs/RELEASE_v13_3.md) |
+| v13.4 | [Historical release notes](docs/RELEASE_v13_4.md) |
+| v13.5 | Stable `main`; hardware stages 1–3 passed, see [historical release](docs/RELEASE_v13_5.md) |
+| v13.6 | Candidate on `dev`; see [release gates](docs/RELEASE_CANDIDATE_v13_6.md) and [backlog](docs/BACKLOG.md) |
 
-## Git and safety
+The development process maintains two documents:
+`docs/PROJECT_HANDOVER.md` for durable design/safety knowledge and
+`docs/SESSION_STATE.md` for actual changes, validation evidence and next steps.
 
-Only version-control scripts, profiles, tests and documentation. `reports/` and large scope CSVs are excluded. Keep secrets and local connection details out of commits.
-
-**This is laboratory automation, not a hardware safety interlock.** A failed connection may leave outputs at their last settings. Preserve the verified restoration and `LOCAL`-last behaviour when making changes; consult the handover.
+**Safety:** this is laboratory automation, not a hardware interlock.
+A sudden PC power loss, network disconnection, full disk or PSU fault
+can leave outputs in an unknown state. Never infer safe terminal
+conditions solely from CSV log events, and always inspect the real
+instrument after an unexpected interruption. Do not run extended
+experiments unattended without a separately engineered safety plan.
