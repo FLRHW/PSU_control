@@ -20,7 +20,7 @@ from pathlib import Path
 
 try:
     from PySide6.QtCore import Qt, QProcess, QThread, Signal, QUrl, QSettings, QTimer
-    from PySide6.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
+    from PySide6.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor, QIcon
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
         QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
@@ -31,7 +31,7 @@ try:
 except ImportError:
     try:
         from PyQt5.QtCore import Qt, QProcess, QThread, pyqtSignal as Signal, QUrl, QSettings, QTimer
-        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor
+        from PyQt5.QtGui import QDesktopServices, QPixmap, QFont, QPainter, QPen, QColor, QIcon
         from PyQt5.QtWidgets import (
             QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
             QLabel, QPushButton, QPlainTextEdit, QFileDialog, QScrollArea,
@@ -57,6 +57,8 @@ from cpx400dp_network_setup import (diagnose_connection, setup_ethernet_link_loc
                                      network_route_summary, instrument_route_summary)
 
 HERE = Path(__file__).resolve().parent
+DESKTOP_APP_ID = 'cpx400dp-control'
+APPLICATION_ICON = HERE.parent / 'assets' / (DESKTOP_APP_ID + '.svg')
 
 
 class ProfileProgressImage(QLabel):
@@ -166,6 +168,8 @@ class Window(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle('CPX400DP — Profile Runner & Manual Control')
+        # Qt's window icon is independent from the KDE .desktop launcher icon.
+        self.setWindowIcon(QIcon(str(APPLICATION_ICON)))
         self.resize(1150, 840)
         self.profile = None
         self.manual_worker = None
@@ -1902,9 +1906,22 @@ class Window(QMainWindow):
         event.accept()
 
 
+def configure_desktop_identity(application):
+    """Match the running Qt window to its installed KDE .desktop launcher.
+
+    The desktop file is cpx400dp-control.desktop. On Wayland the desktop
+    file name is Qt's app_id; on X11 the application name/StartupWMClass
+    provide the matching class. The visible name stays human-readable.
+    """
+    application.setApplicationName(DESKTOP_APP_ID)
+    application.setApplicationDisplayName('CPX400DP Control')
+    application.setDesktopFileName(DESKTOP_APP_ID)
+    application.setWindowIcon(QIcon(str(APPLICATION_ICON)))
+
+
 def main():
     application = QApplication(sys.argv)
-    application.setApplicationName('CPX400DP Control')
+    configure_desktop_identity(application)
     window = Window()
     window.show()
     if len(sys.argv) > 1:
