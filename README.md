@@ -1,19 +1,18 @@
 # CPX400DP PSU Control
 
+![CPX400DP application icon](assets/cpx400dp-control.svg)
+
 Linux/Kubuntu desktop tool for controlling a dual-channel
 Aim-TTi / Thurlby Thandar CPX400DP power supply over Ethernet:
 CSV profile playback, standalone and paused-profile manual control,
 offline preview, measured readbacks, and interactive HTML reports.
 
-**Release status:** v13.6 is a release candidate on `dev`;
-**v13.5 on `main` remains stable**. On 22 November 2026,
-a real supervised 90-second hardware demonstration completed
-with zero readback errors and GUI restoration verified;
-the user also confirmed LOCAL returned on the actual PSU.
-Original CH1 programmed V/I/output-enable front-panel values
-have not been independently reported. v13.6 will not be
-merged/tagged without remaining release acceptance and
-explicit user approval.
+**Version:** v13.6 (22 November 2026). Validated on real
+CPX400DP hardware with supervised 90-second profiles, pause/manual
+control, and CV/CC inference. Full Python and Chromium regression
+tests run in GitHub Actions. Important: programmed-state restoration
+returns the PSU to its **original** settings, including an originally
+enabled output; inspect the physical instrument after use.
 
 ## Features
 
@@ -51,7 +50,34 @@ The application uses Python 3 on Linux and the Qt GUI binding already
 available on the workstation (PyQt5 or PySide6). Offline preview
 and report plots require Matplotlib. No internet is needed at runtime.
 
-Launch on Kubuntu from the project root:
+### KDE Plasma application launcher
+
+From a checkout of this repository, install a normal user-local
+application-menu entry and scalable CPX400DP icon:
+
+```bash
+/usr/bin/python3 scripts/install_desktop_launcher.py
+```
+
+Search **CPX400DP Control** in the KDE Application Launcher.
+Right-click it to **Add to Favorites** or **Pin to Task Manager**;
+KDE can also add a desktop shortcut. No root privileges or new
+dependencies are required. The installer dynamically detects the
+checkout directory, uses the same Python interpreter that runs it,
+and writes only to your personal XDG application/icon directories.
+
+Preview changes or remove the launcher safely:
+
+```bash
+/usr/bin/python3 scripts/install_desktop_launcher.py --dry-run
+/usr/bin/python3 scripts/install_desktop_launcher.py --uninstall
+```
+
+If you move the repository, rerun the installer to update its
+absolute launch path. Installing the launcher **never runs the PSU
+or changes its network settings**.
+
+### Direct launch without an icon
 
 ```bash
 /usr/bin/python3 scripts/cpx400dp_gui.py
@@ -179,8 +205,8 @@ captions.
 | --- | --- |
 | v13.3 | [Historical release notes](docs/RELEASE_v13_3.md) |
 | v13.4 | [Historical release notes](docs/RELEASE_v13_4.md) |
-| v13.5 | Stable `main`; hardware stages 1–3 passed, see [historical release](docs/RELEASE_v13_5.md) |
-| v13.6 | Candidate on `dev`; see [release gates](docs/RELEASE_CANDIDATE_v13_6.md) and [backlog](docs/BACKLOG.md) |
+| v13.5 | Previous stable milestone; see [historical release](docs/RELEASE_v13_5.md) |
+| v13.6 | Released 22 Nov 2026; see [release notes](docs/RELEASE_v13_6.md), [evidence](docs/RELEASE_CANDIDATE_v13_6.md) and [backlog](docs/BACKLOG.md) |
 
 The development process maintains two documents:
 `docs/PROJECT_HANDOVER.md` for durable design/safety knowledge and
