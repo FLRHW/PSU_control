@@ -38,6 +38,26 @@ class RegressionTests(unittest.TestCase):
         self.assertIn("REGULATION: UNKNOWN", GUI)
         self.assertNotIn("query_expected(", GUI)
 
+    def test_qt_preview_marker_renders_without_altering_original_pixmap(self):
+        try:
+            from cpx400dp_gui import QApplication, QPixmap, QColor, ProfileProgressImage
+        except ImportError:
+            self.skipTest('Qt not installed in optional test environment')
+        app = QApplication.instance() or QApplication([])
+        original = QPixmap(680, 360)
+        original.fill(QColor('white'))
+        picture = ProfileProgressImage()
+        picture.setPixmap(original)
+        picture.setFixedSize(680, 360)
+        picture.set_profile_fraction(.5)
+        actual = picture.grab().toImage()
+        x = round(680 * (.105 + .775 * .5))
+        self.assertEqual(actual.pixelColor(x, 160).name(), '#a622ac')
+        self.assertEqual(original.toImage().pixelColor(x,160).name(), '#ffffff')
+        picture.set_profile_fraction(None)
+        self.assertEqual(picture.grab().toImage().pixelColor(x,160).name(), '#ffffff')
+        picture.close()
+
     def test_release_load_demo_stays_below_resistor_rating(self):
         root = Path(__file__).resolve().parents[1]
         p = root/'profiles/examples/hardware_demo_90s_15ohm_REQUIRES_LOAD.csv'
