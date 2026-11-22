@@ -49,7 +49,11 @@ class StorageForecastTests(unittest.TestCase):
         self.assertIn("disk_monitor.check()", heartbeat)
         self.assertIn("print(disk_warning, flush=True)", heartbeat)
         self.assertNotIn("send(sock", heartbeat)
-        self.assertNotIn("raise", heartbeat)
+        disk_poll = heartbeat[heartbeat.index("disk_warning = disk_monitor.check()"):
+                              heartbeat.index("if start is None or next_progress_at is None")]
+        self.assertNotIn("raise", disk_poll)
+        self.assertIn("raise RecordingWriteFailure", heartbeat)
+
 
     def test_no_warning_with_sufficient_capacity(self):
         result = storage.storage_forecast(
