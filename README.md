@@ -86,6 +86,12 @@ Use `ch2_voltage_v`, `ch2_current_limit_a` and `ch2_enable` as additional column
 
 These example CSVs contain waveform data only. The **GUI's current settings** determine interpolation mode and timing; the filenames do not impose those settings. For long-duration runs, choose an appropriate update/readback interval rather than relying on the default 50 ms update interval.
 
+### Ramps and hold
+
+**Initial ramp** gradually changes the programmed voltage and current limit from the PSU's settings at the start of the run to the first CSV values, *before* profile time 0. **Final ramp** gradually returns those values to their saved settings after the profile finishes, when restoration is enabled. Set either ramp to `0 s` to omit it. Ramps do **not** switch the output ON or OFF; the output-enable sequence and final restoration are handled separately.
+
+In a CSV, `ch1_enable=hold` (also `keep` or a blank cell) means **leave that channel's current output-enable state unchanged**; use `1` or `0` to explicitly enable or disable it. This is different from **Pause**, which freezes profile time and holds the current programmed settings until Resume. Temporary Manual Control changes made while paused are restored to the pause-point settings before the profile continues.
+
 ## Reports
 
 Each run can generate a CSV measurement record and an HTML report. Reports include selectable voltage/current/power traces, experiment events, zoom and cursors. For large recordings, keep the `*_report_data/` directory beside the corresponding HTML file so detailed traces can load when you zoom in.
