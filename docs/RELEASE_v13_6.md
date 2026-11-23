@@ -1,66 +1,43 @@
-# CPX400DP Control v13.6 — release notes
+# CPX400DP Control v13.6
 
-**Target release date:** 22 November 2026.  
-**Source:** `dev`, merging to `main` after final CI acceptance.  
-**Scope:** Linux/Kubuntu GUI, CSV profile automation, reports and offline tooling.
+**Published:** 22 November 2026  
+**Release:** [v13.6](https://github.com/FLRHW/PSU_control/releases/tag/v13.6)
 
-## Changes since v13.5
+This is the first public release of CPX400DP Control, a Linux desktop application for controlling an Aim-TTi / Thurlby Thandar CPX400DP dual-output power supply over Ethernet. It supports manual operation, programmable CSV experiments and measurement recording.
 
-- Integrated Linux network discovery and verified last-known PSU IPv4/interface persistence, without changing existing interface configuration.
-- Improved manual control and paused-profile adjustments, with verified settings and resume restoration.
-- Lazy scheduling of very long sparse-keyframe profiles and seconds-through-days offline preview axes.
-- Moving magenta NOW marker over the profile preview, pausing with the profile.
-- Conservative Profile Runner `CV likely` / `CC likely` estimates based on already recorded programmed and measured values. **Not an independent hardware mode readback.**
-- Clearer post-run display, distinguishing programmed restored V/current **limit**/output enable from independently sampled post-restore voltage. No false 0 V / 0 A display from stale pre-restoration measurements.
-- Streaming HTML report for large CSVs (local companion chunks, file:// open, time jumping, 50 ms spike navigation, zoom/pan/cursors).
-- Read-only recording audit for normal and interrupted logs, advisory low-disk monitoring and simulated disk-write-failure containment around PSU cleanup.
-- Optional checksummed ZIP archiving of finished recording, report HTML and chunk folder; original logs are never deleted automatically.
-- Sparse 24-hour, seven-day, 1,000-hour offline preview examples; supervised low-voltage and 15 Ω resistive-load demo examples.
-- New scalable dual-channel PSU application icon and **user-local KDE Plasma launcher installer** `scripts/install_desktop_launcher.py`.
+## Included in this release
 
-## Install launcher
+- **Profile Runner:** Execute one- or two-channel voltage and current-limit profiles from CSV, with step or linear interpolation, configurable command/readback intervals, output-enable control, and initial/final ramps.
+- **Manual Control:** Adjust voltage, current limit and output state. Pause a running profile for temporary manual changes and resume from the held profile settings.
+- **Instrument connectivity:** Identify the PSU, select its network connection and remember the last verified address and interface.
+- **Live monitoring:** Display measured voltage and current, conservative CV/CC estimates, and a moving position marker over the profile preview.
+- **Experiment reports:** Record readings and control events, then explore voltage, current and power in HTML reports with selectable traces, zoom, cursors and timing annotations. Large recordings use local companion data files for on-demand detail.
+- **Recording utilities:** Read-only audit of completed or interrupted logs, advisory free-space warnings and an optional checksummed archive command that does not delete source files.
+- **KDE integration:** A scalable application icon and user-local KDE Plasma launcher installer.
+- **Example profiles:** Short experiments and sparse long-duration schedules for exploring the preview and profile runner.
+
+## Install and launch
+
+From a checkout of the project, with Python 3, PyQt5 or PySide6, and Matplotlib installed:
 
 ```bash
 /usr/bin/python3 scripts/install_desktop_launcher.py
 ```
 
-Then search `CPX400DP Control` in KDE's Application Launcher,
-pin it to the taskbar or add a keyboard shortcut. Install into the
-checkout you want to run; moving the checkout requires rerunning the
-installer. Remove with `--uninstall`. No root privileges, desktop
-environment modifications outside XDG user directories, or extra Python
-dependencies.
+Search for **CPX400DP Control** in KDE's Application Launcher. Alternatively:
 
-## Validation evidence
+```bash
+/usr/bin/python3 scripts/cpx400dp_gui.py
+```
 
-- GitHub Actions Python full offline suite and real Chromium synthetic
-  1,000-hour report smoke tests passed on the pre-launcher code
-  (`45053604295`). **The final CI run including the launcher
-  installer must also pass before tagging this release.**
-- Supervised 90 s CH1 real hardware experiments, pause/manual/resume,
-  CV/CC estimate change through a 15 Ω current-limited load and moving
-  profile cursor were observed and documented in
-  `docs/HARDWARE_ACCEPTANCE_v13_6.md` and `docs/SESSION_STATE.md`.
-- The real 17:56 measurement CSV contained 495 readbacks, zero failures
-  and a post-restoration `physical_output_checked` near 10.986 V.
-  Snapshot and final verification confirmed restoration to the
-  instrument's **original programmed 11.000 V / 3.530 A / output ON**.
-  This is not equivalent to a safe output-OFF shutdown.
-- Offline regression of the corrected final-state GUI display replays
-  ON restoration, OFF restoration, failed verification and stale
-  profile measurements without making additional PSU queries.
-- Screenshot PNGs provided during development are not currently
-  committed to GitHub. No broken README screenshot references.
+See the [README](../README.md) for current installation instructions, screenshots and examples. The README tracks the latest `main` branch and may include improvements made **after** this tagged release.
 
-## Known limits
+## Validation and limitations
 
-Do not treat a logged `LOCAL` command as a readback of local mode;
-user physically confirmed LOCAL in a previous supervised session.
-Do not assume physical safety or output-OFF after abnormal interruption:
-restore returns the originally programmed state, potentially ON. A
-power cut, PSU/network fault or real disk exhaustion can prevent
-safe restoration. The current-limit state is inferred, not continuous
-instrument mode telemetry. Multi-day unattended operation and real
-power-loss recovery were not physically validated.
+Version v13.6 was exercised with supervised CPX400DP hardware experiments, including profile execution, pause/manual/resume, CV/CC estimation and programmed-state restoration. Python regression tests and Chromium report-browser tests passed before publication.
 
-`main` and version tag details are recorded in GitHub once published.
+The software is intended for laboratory automation, not as an independent safety interlock. Restoration attempts to return the instrument to its **previous programmed settings**, including an enabled output if it was enabled beforehand. Loss of communication or power can prevent restoration or verification; actual output state must be checked on the instrument when necessary. CV/CC indicators in the Profile Runner are estimates derived from readings, not continuous hardware-mode telemetry. Multi-day unattended operation and recovery after sudden power loss have not been physically validated.
+
+## Release scope
+
+These notes describe **the v13.6 tag**, not every later commit on `main`. Subsequent README improvements, profile-example cleanup, and KDE window/taskbar identity updates are post-release work and will be accounted for in the next version's release notes. The published v13.6 tag is unchanged.
