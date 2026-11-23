@@ -1,5 +1,9 @@
 # CPX400DP — current session state
 
+## 2026-11-23 — KDE launcher/taskbar identity verified on user workstation
+
+User confirmed **the CPX400DP icon is now displayed correctly** after installing the post-v13.6 Qt window/application identity and desktop launcher updates. This closes the previously reported mismatch between the CPX400DP icon in KDE Application Launcher and the generic Python icon shown on the taskbar. Actual Kubuntu/KDE Plasma visual acceptance is now **user-validated**, in addition to prior successful offline Qt and Chromium CI (run 45071322398). No additional icon changes or hardware test needed. Published v13.6 tag remains unchanged; fix is in post-release `main` commits.
+
 ## 2026-11-22 — Post-release KDE window/taskbar icon identity correction
 
 User observed that KDE Application Launcher shows the correct
