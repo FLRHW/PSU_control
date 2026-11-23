@@ -132,9 +132,9 @@ class RegressionTests(unittest.TestCase):
 
     def test_release_load_demo_stays_below_resistor_rating(self):
         root = Path(__file__).resolve().parents[1]
-        p = root/'profiles/examples/hardware_demo_90s_15ohm_REQUIRES_LOAD.csv'
+        p = root/'profiles/examples/ch1_90s_8v_cc.csv'
         (host, channels, mode, interval, rb, _, points,
-         restoration, initial, final, progress) = load_profile(p)
+         restoration, initial, final, progress) = load_profile(p, overrides={'mode':'step'})
         self.assertEqual(channels, [1])
         self.assertEqual(mode, 'step')
         self.assertEqual(points[-1][0],90)

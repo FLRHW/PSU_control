@@ -86,7 +86,7 @@ class DiscoveryTests(unittest.TestCase):
                 discovery.connect_psu('169.254.51.7')
 
     def test_no_connection_during_invalid_profile(self):
-        profile=Path(__file__).resolve().parents[1] / 'profiles' / 'negative_tests' / '14_REJECT_40ms_INTERVAL_OFFLINE_ONLY.csv'
+        profile=Path(__file__).resolve().parents[1] / 'tests' / 'fixtures' / 'negative_tests' / '14_REJECT_40ms_INTERVAL_OFFLINE_ONLY.csv'
         with patch.object(discovery,'connect_psu',side_effect=AssertionError('must not connect')):
             with self.assertRaisesRegex(ValueError,'50|short|interval|gap|safe|scheduled'):
                 runner.execute(profile)

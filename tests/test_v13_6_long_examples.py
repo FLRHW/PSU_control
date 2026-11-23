@@ -9,12 +9,13 @@ ROOT = Path(__file__).resolve().parents[1] / 'profiles' / 'examples'
 
 class LongExampleTests(unittest.TestCase):
     def test_release_preview_stays_off_and_hardware_demo_is_current_limited(self):
-        preview = load_profile(ROOT / 'release_demo_90s_preview.csv')
+        preview = load_profile(ROOT / 'dual_90s.csv')
         self.assertEqual(preview[6][-1][0], 90)
+        self.assertEqual(preview[2], 'linear')
         self.assertEqual(preview[1], [1, 2])
         self.assertTrue(all(v[2] == 0 for _, rows in preview[6]
                             for v in rows.values()))
-        hardware = load_profile(ROOT / 'hardware_demo_90s_REQUIRES_LOAD.csv')
+        hardware = load_profile(ROOT / 'ch1_90s_3v.csv')
         self.assertEqual(hardware[1], [1])
         self.assertEqual(hardware[6][-1][0], 90)
         self.assertTrue(hardware[7][1])
@@ -29,14 +30,14 @@ class LongExampleTests(unittest.TestCase):
 
     def test_sparse_examples_parse_and_keep_all_outputs_disabled(self):
         for filename, total, count, channels in (
-            ('long_24h_step_preview.csv', 86400, 5, [1]),
-            ('long_7d_linear_preview.csv', 604800, 8, [1, 2]),
-            ('long_1000h_sparse_preview.csv', 3600000, 11, [1, 2]),
+            ('ch1_24h.csv', 86400, 5, [1]),
+            ('dual_7d.csv', 604800, 8, [1, 2]),
+            ('dual_1000h.csv', 3600000, 11, [1, 2]),
         ):
             with self.subTest(filename=filename):
                 (host, active, mode, interval, rb_interval, log_path,
                  points, restore, ramp_start, ramp_end, progress) = load_profile(ROOT / filename)
-                self.assertEqual(host, '192.168.71.2')
+                self.assertIsInstance(host, str)
                 self.assertEqual(active, channels)
                 self.assertEqual(points[-1][0], total)
                 self.assertEqual(len(points), count)

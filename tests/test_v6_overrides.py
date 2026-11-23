@@ -8,7 +8,7 @@ import cpx400dp_run_enhanced as runner
 from cpx400dp_preview import profile_summary
 from cpx400dp_report import generate
 
-SAMPLE=Path(__file__).resolve().parents[1] / 'profiles' / '10.csv'
+SAMPLE=Path(__file__).resolve().parents[1] / 'tests' / 'fixtures' / '10.csv'
 
 class V6Tests(unittest.TestCase):
     def test_preview_uses_overrides_without_mutating_csv(self):

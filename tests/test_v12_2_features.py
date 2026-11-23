@@ -7,7 +7,7 @@ from unittest.mock import patch
 from cpx400dp_run_enhanced import load_profile
 from cpx400dp_preview import profile_summary, generate_preview
 
-HERE = Path(__file__).resolve().parents[1] / 'profiles'
+HERE = Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
 
 
 class ChannelOverrideTests(unittest.TestCase):

@@ -10,7 +10,7 @@ import cpx400dp_preview as preview
 import cpx400dp_report as report
 import cpx400dp_run_enhanced as runner
 
-BASE = Path(__file__).resolve().parents[1] / 'profiles'
+BASE = Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
 
 
 class V11Tests(unittest.TestCase):

@@ -46,7 +46,7 @@ class SimulatedPSU:
 
 class V10Tests(unittest.TestCase):
     def test_profiles_accept_and_reject(self):
-        folder=Path(__file__).resolve().parents[1] / 'profiles'
+        folder=Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
         accepted=preview.profile_summary(folder/'14.csv')
         self.assertAlmostEqual(accepted['min_scheduled_gap_s'],.05)
         self.assertEqual(accepted['enable_commands'][1][0],{'time_s':0.0,'command':'OFF'})
@@ -54,7 +54,7 @@ class V10Tests(unittest.TestCase):
         for name in ['14_REJECT_25ms_EXTRA_POINT_OFFLINE_ONLY.csv','14_REJECT_20ms_FINAL_GAP_OFFLINE_ONLY.csv','14_REJECT_40ms_INTERVAL_OFFLINE_ONLY.csv']:
             with self.subTest(name=name),self.assertRaises(ValueError):preview.profile_summary(folder/'negative_tests'/name)
     def test_invalid_profile_rejected_before_connection(self):
-        folder=Path(__file__).resolve().parents[1] / 'profiles'
+        folder=Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
         with patch.object(runner.socket, 'create_connection', side_effect=AssertionError('MUST NOT CONNECT')) as connect:
             with self.assertRaisesRegex(ValueError,'Unsafe scheduled setpoint spacing'):
                 runner.execute(folder/'negative_tests'/'14_REJECT_25ms_EXTRA_POINT_OFFLINE_ONLY.csv', run_id='negative')
@@ -94,7 +94,7 @@ time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable
         self.assertEqual(runner.effective_heartbeat(200,10),10)
         self.assertEqual(runner.effective_heartbeat(200,5),5)
     def test_preview_has_output_strip_and_notes(self):
-        folder=Path(__file__).resolve().parents[1] / 'profiles'
+        folder=Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
         with tempfile.TemporaryDirectory() as tmp:
             out=preview.generate_preview(folder/'14.csv',Path(tmp)/'preview.html')
             txt=out.read_text()

@@ -33,7 +33,7 @@ class WaveformOnlyTests(unittest.TestCase):
         self.assertEqual((r[2], r[4], r[9]), ('step', .1, 2.0))
 
     def test_legacy_compatibility(self):
-        p = Path(__file__).resolve().parents[1] / 'profiles' / '15.csv'
+        p = Path(__file__).resolve().parents[1] / 'tests' / 'fixtures' / '15.csv'
         raw = load_profile(p)
         self.assertEqual(raw[4], .25)
         self.assertEqual(raw[9], 2.0)

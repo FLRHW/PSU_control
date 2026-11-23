@@ -11,7 +11,7 @@ import cpx400dp_run_enhanced as runner
 import cpx400dp_report as report
 from test_v10_features import SimulatedPSU
 
-BASE = Path(__file__).resolve().parents[1] / 'profiles'
+BASE = Path(__file__).resolve().parents[1] / 'tests' / 'fixtures'
 
 class V111Tests(unittest.TestCase):
     def test_real_downstep_snapshot_preserved(self):

@@ -1,15 +1,3 @@
-# host=192.168.71.2
-# channels=1,2
-# mode=step
-# interval_s=60
-# readback_interval_s=60
-# ch1_restore=true
-# ch2_restore=true
-# initial_ramp_s=0
-# final_ramp_s=0
-# progress_interval_s=3600
-# log_file=long_1000h_measurements.csv
-# PREVIEW ONLY: both outputs OFF; NOT a 1000-hour hardware endurance run.
 time_s,ch1_voltage_v,ch1_current_limit_a,ch1_enable,ch2_voltage_v,ch2_current_limit_a,ch2_enable
 0,0.0,0.05,0,0.0,0.05,0
 360000,0.5,0.05,0,0.25,0.05,0

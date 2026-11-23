@@ -38,7 +38,7 @@ class V9Tests(unittest.TestCase):
         self.assertEqual(opt.settings({1:(2,1)})[0],commands)
 
     def test_50ms_minimum(self):
-        text=(Path(__file__).resolve().parents[1] / 'profiles' / '10.csv').read_text()
+        text=(Path(__file__).resolve().parents[1] / 'tests' / 'fixtures' / '10.csv').read_text()
         with tempfile.TemporaryDirectory() as d:
             path=Path(d)/'t.csv';path.write_text(text)
             with self.assertRaisesRegex(ValueError,'0.05'):
