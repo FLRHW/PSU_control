@@ -1,5 +1,20 @@
 # CPX400DP — current session state
 
+## 2026-11-23 — README/profile cleanup final validation
+
+**GitHub Actions run 45254719203: SUCCESS** on
+`main` source commit `bf4e9d1087e8a64c6893455ec1332927c9147801`.
+Both Python offline suite (including tests for the six
+waveform-only public examples, relocated internal fixtures,
+and actual nonbroken README PNG links) and Chromium
+large-report browser tests passed. The public README now
+includes seven real, publication-ready screenshots; the
+earlier misleading stale-final-measurement screenshot is
+present as an archival image asset only and not shown in
+the README. Stable v13.6 release tag remains unchanged;
+this is a post-release documentation/distribution update.
+
+
 ## 2026-11-23 — Public README and profile directory cleanup
 
 User requested a publication-focused README and public waveform samples.
