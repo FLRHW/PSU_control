@@ -1,6 +1,6 @@
 # CSV waveform examples
 
-These files are ready to open in the CPX400DP GUI. They have **no host-specific IP address or configuration preamble**; the GUI determines connection settings, interpolation mode, timing, ramps and restoration behaviour.
+These files are ready to open in the CPX400DP GUI. They have **no host-specific IP address or configuration preamble**; the GUI determines connection settings, interpolation mode, timing and ramps. The runner defaults to restoring the original programmed channel settings.
 
 | File | Duration | Peak voltage | Output state in the waveform |
 | --- | ---: | --- | --- |
