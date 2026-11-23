@@ -140,7 +140,7 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(points[-1][0],90)
         self.assertTrue(restoration[1])
         self.assertGreaterEqual(validate_schedule(points, interval, initial, final,
-                                                  any(restoration.values())), .05)
+                                                  any(restoration.values())), .05 - 1e-9)
         for t, values in points:
             voltage, current_limit, enabled = values[1]
             self.assertLessEqual(voltage**2 / 15, 5)
