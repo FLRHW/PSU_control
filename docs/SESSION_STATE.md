@@ -1,5 +1,49 @@
 # CPX400DP — current session state
 
+## 2026-11-23 — Public README and profile directory cleanup
+
+User requested a publication-focused README and public waveform samples.
+Changes on `main`:
+- Removed large application icon hero, version/dev history,
+  developer-only test and handover links, release-candidate
+  references and bench-specific Dell D6000/IP wording.
+- Added **actual user-provided CPX400DP GUI/report screenshots**
+  under `docs/screenshots/` and a 7-image README gallery with
+  short explanations of two-channel previews, extended timelines,
+  live progress/CV/CC indicators, paused manual control and HTML
+  measurements. Eighth completion screenshot asset was retained
+  but deliberately omitted from the gallery because it predates
+  the correction to stale post-restoration V/I values.
+- Consolidated safety, operator responsibility, warranty and
+  MIT licence no-liability note into one README section.
+- Public `profiles/` now contains only `README.md` and
+  `examples/`. Six curated waveform-only samples with descriptive
+  filenames: `ch1_90s_3v.csv`, `ch1_90s_8v_cc.csv`,
+  `dual_90s.csv`, `ch1_24h.csv`, `dual_7d.csv`,
+  `dual_1000h.csv`. All bench-specific IP, explicit
+  channels, mode, interval, ramp, log/output destination
+  and restoration metadata has been stripped. Channels
+  are inferred from CSV columns; the GUI supplies mode,
+  intervals, ramp and verified PSU destination.
+  **Caveat:** headerless mode defaults to linear with 50 ms
+  update intervals; for desired step mode or long profiles,
+  operator must select appropriate GUI settings.
+- Historical numbered profile inputs and deliberately invalid
+  negative fixtures moved losslessly to `tests/fixtures/`
+  (negative inputs in `tests/fixtures/negative_tests/`).
+  Updated test references, and adjusted two 50 ms tolerance
+  assertions to account for floating-point rounding.
+  No PSU-control algorithms were changed.
+- All eight screenshots are real supplied captures.
+  The included gallery does not claim the extra pre-fix
+  completion screenshot is current.
+
+**Status:** CI Python and Chromium validation required after
+final docs/test updates. No new PSU hardware test needed,
+as changes are documentation, sample CSV metadata and
+internal fixture relocation only.
+
+
 ## 2026-11-23 — KDE launcher/taskbar identity verified on user workstation
 
 User confirmed **the CPX400DP icon is now displayed correctly** after installing the post-v13.6 Qt window/application identity and desktop launcher updates. This closes the previously reported mismatch between the CPX400DP icon in KDE Application Launcher and the generic Python icon shown on the taskbar. Actual Kubuntu/KDE Plasma visual acceptance is now **user-validated**, in addition to prior successful offline Qt and Chromium CI (run 45071322398). No additional icon changes or hardware test needed. Published v13.6 tag remains unchanged; fix is in post-release `main` commits.
