@@ -9,7 +9,7 @@ from unittest.mock import patch
 import cpx400dp_run_enhanced as runner
 from cpx400dp_gui_core import parse_heartbeat, parse_report_path
 
-SAMPLE = Path(__file__).resolve().parents[1] / 'profiles' / '10.csv'
+SAMPLE = Path(__file__).resolve().parents[1] / 'tests' / 'fixtures' / '10.csv'
 
 class Version3Tests(unittest.TestCase):
     def test_selected_directory_passed_to_runner_without_psu(self):
