@@ -14,8 +14,25 @@ A Linux desktop application for controlling an **Aim-TTi / Thurlby Thandar CPX40
 
 The screenshots below are from actual CPX400DP operation. The GUI is also able to preview a profile without connecting to the PSU.
 
-<!-- README_SCREENSHOTS_START -->
-<!-- README_SCREENSHOTS_END -->
+| Preview a two-channel profile | Inspect a long-duration schedule |
+|:---:|:---:|
+| ![Two-channel setpoint preview](docs/screenshots/01-two-channel-preview.png) | ![Long-duration timeline preview](docs/screenshots/02-long-duration-preview.png) |
+| Inspect both channels' programmed voltage, current limits and output state before running. | The preview supports timelines extending to 1,000 hours without running the experiment. |
+
+| Follow profile progress | Observe current limiting |
+|:---:|:---:|
+| ![Live profile runner with CV estimate and NOW marker](docs/screenshots/03-profile-runner.png) | ![Current-limited operation with CC estimate](docs/screenshots/04-current-limiting.png) |
+| The magenta **NOW** line follows profile time; voltage/current measurements and a CV estimate appear beside the controls. | In a current-limited stage the measured voltage falls below the programmed setpoint, while the runner displays **CC likely**. |
+
+| Adjust a paused profile | Review a completed experiment |
+|:---:|:---:|
+| ![Manual Control during a paused profile](docs/screenshots/05-manual-control.png) | ![HTML experiment report and summary](docs/screenshots/07-html-report.png) |
+| Pause the sequence, adjust voltage/current limit or output state, then resume from the held profile settings. | The HTML report summarises the completed run, readbacks, restoration checks and recorded events. |
+
+![Interactive HTML voltage, current and power chart](docs/screenshots/08-report-charts.png)
+
+*Enable or hide voltage, current and power traces; zoom and use cursors to examine measurements and transitions.*
+
 
 ## Install and launch
 
