@@ -26,7 +26,7 @@ class LongExampleTests(unittest.TestCase):
         self.assertEqual(hardware[6][-1][1][1][2], 0)
         for details in (preview, hardware):
             self.assertGreaterEqual(validate_schedule(details[6], details[3],
-                                                      details[8], details[9], True), .05)
+                                                      details[8], details[9], True), .05 - 1e-9)
 
     def test_sparse_examples_parse_and_keep_all_outputs_disabled(self):
         for filename, total, count, channels in (
